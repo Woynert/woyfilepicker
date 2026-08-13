@@ -1,0 +1,21 @@
+# Ignore everything.
+/**
+
+# Explicitly add tracked files:
+
+!/.gitignore
+!/README.md
+!/fetch-deps.py
+
+!/mickstr/
+!/mickstr/meson.build
+!/mickstr/mickstr_implementation.c
+
+!/raylib-fix-GetWindowHandler.patch
+
+!/stb/
+!/stb/**
+
+!/silk/
+!/silk/meson.build
+!/silk/silk_implementation.c
