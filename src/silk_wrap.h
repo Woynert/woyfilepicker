@@ -31,7 +31,7 @@ void silkwrap_draw_rect(Rect2i rect, Color color) {
         silkwrap_ctx.stride,
         (vec2i) { rect.x, rect.y },
         (vec2i) { rect.width, rect.height },
-        color.rgba
+        color.val
     );
 }
 
@@ -48,7 +48,7 @@ void silkwrap_draw_texture(Image img, Rect2i source, Rect2i dest) {
         (vec2i){0, 0}, // offset
         //(vec2i){source.x, source.y}, // offset
         (vec2i){dest.width, dest.height},
-        WHITE.rgba
+        WHITE.val
     );
 }
 

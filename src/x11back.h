@@ -55,6 +55,12 @@ char *x11_swap_buffer(void) {
     return prev;
 }
 
+char *x11_get_buffer(void) {
+    return x11ctx->bitmap->data == x11ctx->shminfo.shmaddr ?
+        x11ctx->shminfo.shmaddr + x11ctx->buf_len/2 :
+        x11ctx->shminfo.shmaddr;
+}
+
 int x11_ensure_size(V2i target_size) {
     printfd("Requested "V2i_Fmt, V2i_Arg(target_size));
 
@@ -116,12 +122,6 @@ int x11back_init(GLFWwindow* glfw_window) {
     return x11_ensure_size((V2i){{500, 500}});
 }
 
-char *x11_get_buffer(void) {
-    return (x11ctx->bitmap->data == SHM_INVALID
-        || x11ctx->bitmap->data == NULL) ?
-        NULL : x11ctx->bitmap->data;
-}
-
 void x11_draw_texture(void) {
     XShmPutImage(x11ctx->display, x11ctx->window, x11ctx->gc, x11ctx->bitmap,
             0, 0, 0, 0,
@@ -130,3 +130,4 @@ void x11_draw_texture(void) {
 }
 
 #endif
+

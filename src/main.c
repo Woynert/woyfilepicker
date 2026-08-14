@@ -17,6 +17,7 @@
 #define LA_IMPLEMENTATION
 #include "la.h"
 
+bool must_close = false;
 bool must_redraw = false;
 bool must_resize = false;
 
@@ -33,6 +34,9 @@ void glfw_cursor_pos_callback(GLFWwindow *w, double xpos, double ypos) {
 void glfw_key_callback(GLFWwindow* w, int key, int scancode, int action, int mods) {
     kinput_glfw_key_callback(w, key, scancode, action, mods);
     must_redraw = true;
+    if (kinput_key_pressed(GLFW_KEY_Q)) {
+        must_close = true;
+    }
 }
 void glfw_window_size_callback (GLFWwindow *w, int width, int height) {
     Ctx *ctx = (Ctx*)glfwGetWindowUserPointer(w);
@@ -58,14 +62,8 @@ void hook_glfw_callbacks(GLFWwindow* w, Ctx *ctx) {
 int main(void) {
     GLFWwindow* window;
     V2i initial_win_size = {{ 640, 480 }};
-
-    Ctx __ctx = { 0 };
-    Ctx *ctx = &__ctx;
-
     if (!glfwInit()) { printfd("ERR: Failed to glfwInit."); return -1; }
-
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-
     window = glfwCreateWindow(initial_win_size.x, initial_win_size.y, "Hello World", NULL, NULL);
     if (!window) {
         printfd("ERR: Failed to create window.");
@@ -73,8 +71,13 @@ int main(void) {
     }
     glfwMakeContextCurrent(window);
 
+    /// ↓↓↓
+
+    Ctx __ctx = { 0 };
+    Ctx *ctx = &__ctx;
     hook_glfw_callbacks(window, ctx);
     ctx_init(ctx);
+    ctx_load_assets(ctx);
     ctx->window_size = initial_win_size;
 
     // INIT WOOD DRAWER
@@ -97,7 +100,7 @@ int main(void) {
     long long last_frame_timestamp_ns = 0;
 
     glfwPollEvents();
-    while (!glfwWindowShouldClose(window))
+    while (!glfwWindowShouldClose(window) && !must_close)
     {
         FRAME_START_TIME_NS = get_system_ns();
 
@@ -127,41 +130,24 @@ int main(void) {
         if (must_redraw) {
             must_redraw ^= 1;
 
-            long time_start = get_system_ms();
-            int size = ctx->window_size.x * ctx->window_size.y * 4;
-            memset(x11_get_buffer(), 0, (size_t)size);
+            {
+                long time_start = get_system_ms();
+                memset(x11_get_buffer(), 0, (size_t)(ctx->window_size.x * ctx->window_size.y * 4));
 
-            /*int size_pixels = silk_ctx_curr->viewport_size.x * silk_ctx_curr->viewport_size.y;*/
-            /*for (int i = 0; i < size_pixels; ++i) {*/
-                /*silk_ctx_curr->pixels[i] = YELLOW.rgba;*/
-            /*}*/
+                /*int size_pixels = silk_ctx_curr->viewport_size.x * silk_ctx_curr->viewport_size.y;*/
+                /*for (int i = 0; i < size_pixels; ++i) {*/
+                    /*silk_ctx_curr->pixels[i] = YELLOW.rgba;*/
+                /*}*/
 
-            /*silkDrawRect(*/
-                    /*silk_ctx_curr->pixels,*/
-                    /*(vec2i){silk_ctx_curr->viewport_size.x, silk_ctx_curr->viewport_size.y},*/
-                    /*silk_ctx_curr->viewport_size.x,*/
-                    /*(vec2i) {0},*/
-                    /*(vec2i){silk_ctx_curr->viewport_size.x, silk_ctx_curr->viewport_size.y},*/
-                    /*YELLOW.rgba);*/
-            /*silkDrawTextDefault(*/
-                    /*silk_ctx_curr->pixels,*/
-                    /*(vec2i){silk_ctx_curr->viewport_size.x, silk_ctx_curr->viewport_size.y},*/
-                    /*silk_ctx_curr->viewport_size.x, "HELLO", (vec2i){0}, 5, 1, BLACK.rgba);*/
+                /*olivec_fill(olivewrap_canvas, 0xFF181818);*/
+                draw_rect((Rect2i) {.size=ctx->window_size}, BLUE);
+                draw_all(ctx);
+                /*draw_rect((Rect2i) {{ 200 + (int)(((float)(ticks % 100)/100.0f) * 200.0f), 200, 50, 60}}, BLUE);*/
+                draw_image(ctx->icon1, v2i(100,200));
+            }
 
 
-            /*draw_rect((Rect2i){ .size=ctx->window_size }, BLACK);*/
-            draw_all(ctx);
-            draw_rect((Rect2i) {{ 200 + (int)(((float)(ticks % 100)/100.0f) * 200.0f), 200, 50, 60}}, BLUE);
-            /*silkDrawCircle(*/
-                    /*silk_ctx_curr->pixels,*/
-                    /*(vec2i){silk_ctx_curr->viewport_size.x, silk_ctx_curr->viewport_size.y},*/
-                    /*silk_ctx_curr->viewport_size.x,*/
-                    /*(vec2i) { 200 + (int)(((float)(ticks % 100)/100.0f) * 200.0f), 200},*/
-                    /*60,*/
-                    /*0xff0000ff*/
-            /*);*/
-
-            /*silk_ctx_curr->buffer = x11_swap_buffer();*/
+            rgba_to_bgra((u32*)x11_get_buffer(), (Rect2i){.size=ctx->window_size}, ctx->window_size.x);
             char *buffer = x11_swap_buffer();
             wod_set_buffer((u32*)buffer, ctx->window_size, ctx->window_size.x);
             x11_draw_texture();
@@ -171,15 +157,17 @@ int main(void) {
         glfwPollEvents();
         long long frame_time = (get_system_ns() - FRAME_START_TIME_NS);
         long long time_since_last = get_system_ns() - last_frame_timestamp_ns;
-        printfd("Frame: Ideal %.4fms, Actual %.4fms, FPS %.2f",
-                ns2msf((float)TARGET_FRAME_NS), ns2msf((float)(time_since_last)),
-                1000.f / ns2msf((float)time_since_last)
-            );
+        /*printfd("Frame: Ideal %.4fms, Actual %.4fms, FPS %.2f",*/
+                /*ns2msf((float)TARGET_FRAME_NS), ns2msf((float)(time_since_last)),*/
+                /*1000.f / ns2msf((float)time_since_last)*/
+            /*);*/
         last_frame_timestamp_ns = get_system_ns();
         sleep_ns(long_long_max(0, TARGET_FRAME_NS - frame_time));
     }
 
+    ctx_free(ctx);
     drawbuf_deinit();
     glfwTerminate();
+    printfd("End");
     return 0;
 }

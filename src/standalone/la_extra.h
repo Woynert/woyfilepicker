@@ -2,6 +2,10 @@
 #define LA_EXTRA
 
 #include "la.h"
+#include <stdint.h>
+
+typedef uint32_t u32;
+typedef uint8_t u8;
 
 typedef union Rect2 {
     struct {

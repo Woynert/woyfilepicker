@@ -5,8 +5,8 @@
 #include "silk_wrap.h"
 
 typedef struct Ctx {
-    SilkCtx silk_ctx;
     V2i window_size;
+    Image icon1;
 } Ctx;
 
 #endif

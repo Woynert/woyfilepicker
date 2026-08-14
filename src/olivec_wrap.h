@@ -13,7 +13,7 @@ void olivewrap_set_buffer(u32 *pixels, V2i size, int stride) {
 }
 
 void olivewrap_draw_rect(Rect2i rect, Color color) {
-    olivec_rect(olivewrap_canvas, rect.x, rect.y, rect.width, rect.height, color.rgba);
+    olivec_rect(olivewrap_canvas, rect.x, rect.y, rect.width, rect.height, color.val);
 }
 
 void olivewrap_draw_texture(Image img, Rect2i source, Rect2i dest) {

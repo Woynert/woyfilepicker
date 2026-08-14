@@ -57,9 +57,9 @@ void wod__set_error(int err) {
 }
 
 Image load_image(strview_t path) {
+    wod__set_error(0);
     Arena scratch = wod__get_arena();
     strbuf_t *path_buf = strbuf_create_with_arena(path, &scratch);
-    wod__set_error(0);
     Image img = { 0 };
     img.pixels = (uint32_t *)stbi_load(path_buf->cstr, &img.size.x, &img.size.y, NULL, STB_RGBA);
     if (img.pixels == NULL) {
@@ -67,6 +67,11 @@ Image load_image(strview_t path) {
         wod__set_error(-1);
     }
     return img;
+}
+
+void free_image(Image img) {
+    stbi_image_free(img.data);
+    img = (Image) { 0 };
 }
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -108,8 +113,12 @@ void draw_rect(Rect2i rect, Color color) {
     wod__drawer.draw_rect(rect, color);
 }
 
-void draw_image(Image img, Rect2i source, Rect2i dest) {
+void draw_image_ext(Image img, Rect2i source, Rect2i dest) {
     wod__drawer.draw_texture(img, source, dest);
+}
+
+void draw_image(Image img, V2i pos) {
+    wod__drawer.draw_texture(img, (Rect2i){.size=img.size}, (Rect2i){.pos=pos,.size=img.size});
 }
 
 /*
