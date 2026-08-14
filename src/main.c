@@ -1,6 +1,6 @@
 #include "kinput.h"
+#include "olivec_wrap.h"
 #include "portable_utils.h"
-/*#include "x11_platform.h"*/
 #include <X11/Xlib.h>
 #include "state_init.h"
 #include "x11back.h"
@@ -8,7 +8,7 @@
 #include "silk.h"
 #include "ui.h"
 #include "silk_wrap.h"
-/*#include <X11/Xlib.h>*/
+#include "wod_drawer.h"
 
 #define GLFW_EXPOSE_NATIVE_X11
 #include <GLFW/glfw3.h>
@@ -38,7 +38,7 @@ void glfw_window_size_callback (GLFWwindow *w, int width, int height) {
     Ctx *ctx = (Ctx*)glfwGetWindowUserPointer(w);
     ctx->window_size = (V2i) {{ width, height }};
     must_resize = true;
-    /*must_redraw = true;*/
+    must_redraw = true;
 }
 void glfw_window_refresh_callback (GLFWwindow *w) {
     Ctx *ctx = (Ctx*)glfwGetWindowUserPointer(w);
@@ -77,38 +77,24 @@ int main(void) {
     ctx_init(ctx);
     ctx->window_size = initial_win_size;
 
-    /*V2i silk_buffer_size = ;*/
-    /*u8* silk_buffer = (u8*)malloc((size_t)(3000 * 3000) * 4);*/
+    // INIT WOOD DRAWER
+    wod_set_drawer(olivewrap_make_drawer());
 
-    /*SilkCtx silk_ctx = { 0 };*/
-    silk_ctx_curr = &ctx->silk_ctx;
-    silk_ctx_init(silk_ctx_curr);
+    /*silk_ctx_curr = &ctx->silk_ctx;*/
+    /*silk_ctx_init(silk_ctx_curr);*/
     must_resize = true; // <-- Trigger buffers to resize.
-    /*silk_resize(silk_ctx_curr, ctx->window_size);*/
-    /*silk_resize(silk_ctx_curr, (V2i) {{*/
-        /*ctx->window_size.x),*/
-        /*int_max(SILK_PIXELBUFFER_HEIGHT, ctx->window_size.y)*/
-    /*}});*/
 
     x11back_init(window);
-    /*x11back_init(window, (V2i){{ silk_buffer_size.x, silk_buffer_size.y }});*/
     drawbuf_init();
-    drawbuf__DrawRectCallback = &silk_DrawRectCallback;
+    drawbuf__DrawRectCallback = &draw_rect;
 
 
-    long fps_calculation_last_timestamp = 0;
     long prev_draw_timestamp = get_system_ms();
-    long max_draw_wait_ms = 17;
-    /*const long mimo = max_draw_wait_ms;*/
-    double GLFW_EVENT_TIMEOUT_SECS = 1;
     int ticks = 0;
     int fps_calculation = 0;
-    /*long long TARGET_FRAME_NS = (long long)((1000.f/60.f) * MS_TO_NS);*/
-    /*long long TARGET_FRAME_NS = (long long)(sec2ns(1.f/60.f));*/
-    long long TARGET_FRAME_NS = ms2ns(16);
+    long long TARGET_FRAME_NS = (long long)(sec2ns(1.f/60.f));
     long long FRAME_START_TIME_NS;
     long long last_frame_timestamp_ns = 0;
-    /*int frame_time */
 
     glfwPollEvents();
     while (!glfwWindowShouldClose(window))
@@ -117,7 +103,6 @@ int main(void) {
 
         ++ticks;
         long curr_time_ms = get_system_ms();
-        long curr_time_ms_2 = 0;
         if (curr_time_ms - prev_draw_timestamp > 1000) {
             prev_draw_timestamp = curr_time_ms;
             fps_calculation = ticks;
@@ -125,109 +110,71 @@ int main(void) {
         }
         printf("FPS %d\n", fps_calculation);
 
-
-        /*glfwWaitEventsTimeout(1.0/60.0);*/
-        /*if (!must_redraw) { continue; }*/
-        /*curr_timestamp = get_system_ms();*/
-        /*if ((curr_timestamp - prev_draw_timestamp) < max_draw_wait_ms) { continue; }*/
-
-        /*if (!must_redraw) { continue; }*/
         if (must_resize) {
             must_resize ^= 1;
             ctx->window_size = (V2i) {{ int_max(2, ctx->window_size.x), int_max(2, ctx->window_size.y) }};
-
             int err = x11_ensure_size(ctx->window_size);
-            /*int err = 0;*/
             if (err == 0) {
-                silk_ctx_curr->buffer = x11_swap_buffer();
-                silk_set_buffer(silk_ctx_curr, silk_ctx_curr->buffer, ctx->window_size, ctx->window_size.x);
+                char *buffer = x11_get_buffer();
+                memset(buffer, 0, (size_t)(ctx->window_size.x * ctx->window_size.y * 4));
+                buffer = x11_swap_buffer();
+                wod_set_buffer((u32*)buffer, ctx->window_size, ctx->window_size.x);
             } else {
                 printfd("ERR: x11 Couldn't ensure size.");
             }
         }
 
-        /*silkClearPixelBufferColorRegion(*/
-                /*silk_ctx_curr->pixels,*/
-                /*(vec2i){silk_ctx_curr->viewport_size.x, silk_ctx_curr->viewport_size.y},*/
-                /*silk_ctx_curr->viewport_size.x,*/
-                /*0);*/
-        long time_start = get_system_ms();
-        int size = silk_ctx_curr->viewport_size.x * silk_ctx_curr->viewport_size.y * 4;
-        /*memset(silk_ctx_curr->buffer, 0, (size_t)size);*/
-        /*memset(silk_ctx_curr->buffer, 0, (size_t)size);*/
-        /*for (int i = 0; i < size; ++i) {*/
-            /*silk_ctx_curr->buffer[i] = 0;*/
-        /*}*/
-        int size_pixels = silk_ctx_curr->viewport_size.x * silk_ctx_curr->viewport_size.y;
-        for (int i = 0; i < size_pixels; ++i) {
-            silk_ctx_curr->pixels[i] = YELLOW.rgba;
+        if (must_redraw) {
+            must_redraw ^= 1;
+
+            long time_start = get_system_ms();
+            int size = ctx->window_size.x * ctx->window_size.y * 4;
+            memset(x11_get_buffer(), 0, (size_t)size);
+
+            /*int size_pixels = silk_ctx_curr->viewport_size.x * silk_ctx_curr->viewport_size.y;*/
+            /*for (int i = 0; i < size_pixels; ++i) {*/
+                /*silk_ctx_curr->pixels[i] = YELLOW.rgba;*/
+            /*}*/
+
+            /*silkDrawRect(*/
+                    /*silk_ctx_curr->pixels,*/
+                    /*(vec2i){silk_ctx_curr->viewport_size.x, silk_ctx_curr->viewport_size.y},*/
+                    /*silk_ctx_curr->viewport_size.x,*/
+                    /*(vec2i) {0},*/
+                    /*(vec2i){silk_ctx_curr->viewport_size.x, silk_ctx_curr->viewport_size.y},*/
+                    /*YELLOW.rgba);*/
+            /*silkDrawTextDefault(*/
+                    /*silk_ctx_curr->pixels,*/
+                    /*(vec2i){silk_ctx_curr->viewport_size.x, silk_ctx_curr->viewport_size.y},*/
+                    /*silk_ctx_curr->viewport_size.x, "HELLO", (vec2i){0}, 5, 1, BLACK.rgba);*/
+
+
+            /*draw_rect((Rect2i){ .size=ctx->window_size }, BLACK);*/
+            draw_all(ctx);
+            draw_rect((Rect2i) {{ 200 + (int)(((float)(ticks % 100)/100.0f) * 200.0f), 200, 50, 60}}, BLUE);
+            /*silkDrawCircle(*/
+                    /*silk_ctx_curr->pixels,*/
+                    /*(vec2i){silk_ctx_curr->viewport_size.x, silk_ctx_curr->viewport_size.y},*/
+                    /*silk_ctx_curr->viewport_size.x,*/
+                    /*(vec2i) { 200 + (int)(((float)(ticks % 100)/100.0f) * 200.0f), 200},*/
+                    /*60,*/
+                    /*0xff0000ff*/
+            /*);*/
+
+            /*silk_ctx_curr->buffer = x11_swap_buffer();*/
+            char *buffer = x11_swap_buffer();
+            wod_set_buffer((u32*)buffer, ctx->window_size, ctx->window_size.x);
+            x11_draw_texture();
         }
-        /*int size = silk_ctx_curr->viewport_size.x * silk_ctx_curr->viewport_size.y * 4;*/
-        /*for (int i = 0; i < size; ++i) {*/
-            /*silk_ctx_curr->buffer[i] = 0;*/
-        /*}*/
-        /*silkDrawRect(*/
-                /*silk_ctx_curr->pixels,*/
-                /*(vec2i){silk_ctx_curr->viewport_size.x, silk_ctx_curr->viewport_size.y},*/
-                /*silk_ctx_curr->viewport_size.x,*/
-                /*(vec2i) {0},*/
-                /*(vec2i){silk_ctx_curr->viewport_size.x, silk_ctx_curr->viewport_size.y},*/
-                /*YELLOW.rgba);*/
-        silkDrawTextDefault(
-                silk_ctx_curr->pixels,
-                (vec2i){silk_ctx_curr->viewport_size.x, silk_ctx_curr->viewport_size.y},
-                silk_ctx_curr->viewport_size.x, "HELLO", (vec2i){0}, 5, 1, BLACK.rgba);
 
-
-        /*draw_all(ctx);*/
-        silkDrawCircle(
-                silk_ctx_curr->pixels,
-                (vec2i){silk_ctx_curr->viewport_size.x, silk_ctx_curr->viewport_size.y},
-                silk_ctx_curr->viewport_size.x,
-                (vec2i) { 200 + (int)(((float)(ticks % 100)/100.0f) * 200.0f), 200},
-                60,
-                0xff0000ff
-        );
-
-        long time_end = get_system_ms();
-        printfd("Drawing took %ld ms", time_end - time_start);
-        time_start = time_end;
-
-        /*x11_draw_texture(silk_ctx_curr->buffer, silk_ctx_curr->viewport_size);*/
-        /*memcpy(x11ctx->bitmap->data, silk_buffer, (size_t)x11ctx->buf_len);*/
-        silk_ctx_curr->buffer = x11_swap_buffer();
-        x11_draw_texture();
-        time_end = get_system_ms();
-        printfd("X11 texture took %ld ms", time_end - time_start);
-
-        /*draw_all(ctx);*/
-        must_redraw ^= 1;
-
-        /*silkClearPixelBufferColorRegion(silk_ctx_curr->pixels, (vec2i){silk_buffer_size.x, silk_buffer_size.y}, silk_buffer_size.x, 0x11AA0033);*/
-        /*silkDrawCircle(*/
-                /*silk_ctx_curr->pixels,*/
-                /*(vec2i) { silk_buffer_size.x, silk_buffer_size.y },*/
-                /*silk_buffer_size.x,*/
-                /*(vec2i) { ticks * 2, 0},*/
-                /*60,*/
-                /*0xff0000ff*/
-        /*);*/
-        /*silkDrawRect(*/
-                /*silk_ctx_curr->pixels,*/
-                /*(vec2i) { silk_buffer_size.x, silk_buffer_size.y },*/
-                /*silk_buffer_size.x,*/
-                /*(vec2i) { 200, 0 },*/
-                /*(vec2i) { 200, 200 },*/
-                /*0xff0000ff*/
-        /*);*/
-
-
-        /* Poll for and process events */
-        /*glfwPollEvents();*/
 
         glfwPollEvents();
         long long frame_time = (get_system_ns() - FRAME_START_TIME_NS);
-        printfd("Frame: Ideal %.4fms, Actual %.4fms", ns2msf((float)TARGET_FRAME_NS), ns2msf((float)(get_system_ns() - last_frame_timestamp_ns)));
+        long long time_since_last = get_system_ns() - last_frame_timestamp_ns;
+        printfd("Frame: Ideal %.4fms, Actual %.4fms, FPS %.2f",
+                ns2msf((float)TARGET_FRAME_NS), ns2msf((float)(time_since_last)),
+                1000.f / ns2msf((float)time_since_last)
+            );
         last_frame_timestamp_ns = get_system_ns();
         sleep_ns(long_long_max(0, TARGET_FRAME_NS - frame_time));
     }

@@ -1,66 +1,62 @@
 #ifndef SILK_WRAP_H
 #define SILK_WRAP_H
 
+#include "la_extra.h"
+#include "wod_drawer.h"
 #include "silk.h"
-#include "raylib_drawbuffer.h"
 
-typedef void (*drawbuf_DrawRectCallback_t) (Rect2i rect, Color color);
-typedef void (*drawbuf_DrawRectLinesCallback_t) (Rect2i rect, Color color, int thickness);
-typedef void (*drawbuf_DrawTextCallback_t) (strview_t str, intptr_t font, V2i position, int font_size, int spacing, int textLineSpacing, Color tint);
-typedef void (*drawbuf_DrawTextureCallback_t) (intptr_t texture, Rect2i source, Rect2i dest, V2i origin, float rotation, Color tint);
-typedef void (*drawbuf_ScissorCallback_t) (Rect2i rect, bool start_end);
-
-void *silk__allocator(void* ptr, size_t size, int align, void* user_data) {
-    void* result = NULL; (void)align; (void)user_data;
-    if     (!size){ free(ptr);                  } // Free:           ptr != NULL && size == 0
-    else if(!ptr ){ result = malloc(size);      } // New allocation: ptr == NULL && size > 0
-    else          { result = realloc(ptr, size);} // Reallocation:   ptr != NULL && size > 0
-    return result; // malloc guarantees alignment.
-}
 
 typedef struct SilkCtx {
     union {
         char *buffer;
         pixel *pixels;
     };
-    //int buffer_len;
     int stride;
     V2i viewport_size;
 } SilkCtx;
 
-SilkCtx *silk_ctx_curr;
+SilkCtx silkwrap_ctx = { 0 };
 
-void silk_ctx_init(SilkCtx *s) {
-    *s = (SilkCtx) { 0 };
+
+void silkwrap_set_buffer(u32 *pixels, V2i size, int stride) {
+    silkwrap_ctx.pixels = pixels;
+    silkwrap_ctx.viewport_size = size;
+    silkwrap_ctx.stride = stride;
 }
 
-void silk_set_buffer(SilkCtx *s, char *buff, V2i view_size, int stride) {
-    s->buffer = buff;
-    s->viewport_size = view_size;
-    s->stride = stride;
-}
-//void silk_resize(SilkCtx *s, V2i size) {
-    //wassert(size.x >= 0 && size.y >= 0);
-    //int target_size = size.x * size.y * (int)sizeof(pixel);
-    //if (target_size > s->buffer_len) {
-        //s->buffer = (char*)silk__allocator(s->buffer, (size_t)target_size, 0, 0);
-        //if (!s->buffer) { wassert(false); }
-    //}
-    //s->viewport_size = size;
-//}
-
-void silk_DrawRectCallback(Rect2i rect, Color color) {
-    SilkCtx *s = silk_ctx_curr;
+void silkwrap_draw_rect(Rect2i rect, Color color) {
     silkDrawRect(
-        (pixel*)s->buffer,
-        (vec2i){s->viewport_size.x, s->viewport_size.y},
-        s->stride,
+        (pixel*)silkwrap_ctx.buffer,
+        (vec2i){silkwrap_ctx.viewport_size.x, silkwrap_ctx.viewport_size.y},
+        silkwrap_ctx.stride,
         (vec2i) { rect.x, rect.y },
         (vec2i) { rect.width, rect.height },
         color.rgba
     );
 }
 
+//SILK_API i32 silkDrawImageScaled(image* img, vec2i position, vec2i size_dest);
+//SILK_API i32    silkDrawImagePro(image* img, vec2i position, vec2i offset, vec2i size_dest, pixel tint);
+void silkwrap_draw_texture(Image img, Rect2i source, Rect2i dest) {
+    image silk_image = silkBufferToImage(img.pixels, (vec2i){img.size.x, img.size.y});
+    silkDrawImagePro(
+        (pixel*)silkwrap_ctx.buffer,
+        (vec2i){silkwrap_ctx.viewport_size.x, silkwrap_ctx.viewport_size.y},
+        silkwrap_ctx.stride,
+        &silk_image,
+        (vec2i){dest.x, dest.y},
+        (vec2i){0, 0}, // offset
+        //(vec2i){source.x, source.y}, // offset
+        (vec2i){dest.width, dest.height},
+        WHITE.rgba
+    );
+}
 
+Drawer silkwrap_make_drawer(void) {
+    return (Drawer) {
+        .draw_rect = silkwrap_draw_rect,
+        .draw_texture = silkwrap_draw_texture,
+    };
+}
 
 #endif

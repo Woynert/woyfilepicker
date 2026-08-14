@@ -86,7 +86,7 @@ typedef void (*drawbuf_DrawRectCallback_t) (Rect2i rect, Color color);
 typedef void (*drawbuf_DrawRectLinesCallback_t) (Rect2i rect, Color color, int thickness);
 typedef void (*drawbuf_DrawTextCallback_t) (strview_t str, intptr_t font, V2i position, int font_size, int spacing, int textLineSpacing, Color tint);
 typedef void (*drawbuf_DrawTextureCallback_t) (intptr_t texture, Rect2i source, Rect2i dest, V2i origin, float rotation, Color tint);
-typedef void (*drawbuf_ScissorCallback_t) (Rect2i rect, bool start_end);
+typedef void (*drawbuf_ScissorCallback_t) (bool start_end, Rect2i rect);
 
 drawbuf_DrawRectCallback_t      drawbuf__DrawRectCallback = NULL;
 drawbuf_DrawRectLinesCallback_t drawbuf__DrawRectLinesCallback = NULL;
@@ -126,11 +126,11 @@ void drawbuf_draw_all(void) {
                 case DRAWCMD_BEGIN_SCISSOR:
                 {
                     drawbuf_ScissorMode_t *args = arenady_new(&layer->arena, drawbuf_ScissorMode_t, 1);
-                    drawbuf__ScissorCallback(args->r, true);
+                    drawbuf__ScissorCallback(true, args->r);
                 } break;
                 case DRAWCMD_END_SCISSOR:
                 {
-                    drawbuf__ScissorCallback((Rect2i){0}, false);
+                    drawbuf__ScissorCallback(false, (Rect2i){0});
                 } break;
             }
         }

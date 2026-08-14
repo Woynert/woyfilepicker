@@ -19,3 +19,6 @@
 !/silk/
 !/silk/meson.build
 !/silk/silk_implementation.c
+
+!/olivec/
+!/olivec/**

@@ -82,6 +82,8 @@ silk_dep = silk_proj.get_variable('silk_dep')
 stb_proj = subproject('stb', default_options: [ 'default_library=shared' ])
 stb_dep = stb_proj.get_variable('stb_dep')
 
+olivec_dep = subproject('olivec', default_options: [ 'default_library=shared' ]).get_variable('olivec_dep')
+
 cmake = import('cmake')
 glfw_proj = cmake.subproject('glfw')
 glfw_dep = glfw_proj.dependency('glfw')
@@ -112,6 +114,8 @@ exe = executable(
     silk_dep,
     x11_dep,
     xext_dep,
+    stb_dep,
+    olivec_dep,
     #gl_dep,
     #dl_dep,
   ]
