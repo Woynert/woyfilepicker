@@ -23,7 +23,8 @@ typedef struct SilkCtx {
         char *buffer;
         pixel *pixels;
     };
-    int buffer_len;
+    //int buffer_len;
+    int stride;
     V2i viewport_size;
 } SilkCtx;
 
@@ -33,22 +34,27 @@ void silk_ctx_init(SilkCtx *s) {
     *s = (SilkCtx) { 0 };
 }
 
-void silk_resize(SilkCtx *s, V2i size) {
-    wassert(size.x >= 0 && size.y >= 0);
-    int target_size = size.x * size.y * (int)sizeof(pixel);
-    if (target_size > s->buffer_len) {
-        s->buffer = (char*)silk__allocator(s->buffer, (size_t)target_size, 0, 0);
-        if (!s->buffer) { wassert(false); }
-    }
-    s->viewport_size = size;
+void silk_set_buffer(SilkCtx *s, char *buff, V2i view_size, int stride) {
+    s->buffer = buff;
+    s->viewport_size = view_size;
+    s->stride = stride;
 }
+//void silk_resize(SilkCtx *s, V2i size) {
+    //wassert(size.x >= 0 && size.y >= 0);
+    //int target_size = size.x * size.y * (int)sizeof(pixel);
+    //if (target_size > s->buffer_len) {
+        //s->buffer = (char*)silk__allocator(s->buffer, (size_t)target_size, 0, 0);
+        //if (!s->buffer) { wassert(false); }
+    //}
+    //s->viewport_size = size;
+//}
 
 void silk_DrawRectCallback(Rect2i rect, Color color) {
     SilkCtx *s = silk_ctx_curr;
     silkDrawRect(
         (pixel*)s->buffer,
         (vec2i){s->viewport_size.x, s->viewport_size.y},
-        s->viewport_size.x,
+        s->stride,
         (vec2i) { rect.x, rect.y },
         (vec2i) { rect.width, rect.height },
         color.rgba

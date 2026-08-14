@@ -42,6 +42,7 @@ MY_WARNINGS = [
   '-Wno-error=unused-parameter',
   '-Wno-error=unused-function',
   '-Wno-error=unused-variable',
+  '-Wno-error=unused-but-set-variable',
   '-Wno-unused-function',
   '-Wno-error=stringop-truncation',
 
@@ -89,6 +90,7 @@ woycontainer_proj = subproject('woycontainer')
 woycontainer_dep = woycontainer_proj.get_variable('woycontainer_dep')
 
 x11_dep = dependency('X11')
+xext_dep = dependency('xext')
 
 #gl_dep = dependency('gl') # Only needed to shut up clang LSP.
 #dl_dep = dependency('dl')
@@ -109,6 +111,7 @@ exe = executable(
     cwalk_dep,
     silk_dep,
     x11_dep,
+    xext_dep,
     #gl_dep,
     #dl_dep,
   ]

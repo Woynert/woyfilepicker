@@ -17,7 +17,7 @@ mesonSetupDebug:
 
 mesonSetupRelease:
 	meson setup --reconfigure --prefix=$(CURDIR)/build_release build_release \
-		--buildtype=release -Doptimization=2 -Db_ndebug=true
+		--buildtype=release -Doptimization=3 -Db_ndebug=true
 
 compile:
 	meson compile -C build

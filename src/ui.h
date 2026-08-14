@@ -55,10 +55,10 @@ void (*widget_func[]) (Ctx *ctx, uitree_DrawInfo info) = {
 };
 
 void ui_widget_test (Ctx *ctx, uitree_DrawInfo info) {
-    b_DrawRect(info.area, GRAY);
+    //b_DrawRect(info.area, GRAY);
     info.area.height /= 2;
-    b_DrawRect(info.area, MAGENTA);
-    info.area.height /= 2;
+    //b_DrawRect(info.area, MAGENTA);
+    info.area.height /= 10;
     b_DrawRect(info.area, LIME);
     //b_DrawRectLines(info.area, MAGENTA, 1);
 }

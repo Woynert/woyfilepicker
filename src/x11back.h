@@ -1,3 +1,8 @@
+/*
+   Some relevant docs:
+   https://linux.die.net/man/3/xshmattach
+    */
+
 #ifndef X11BACK_H
 #define X11BACK_H
 
@@ -8,6 +13,12 @@
 #define GLFW_EXPOSE_NATIVE_X11
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
+#include <X11/Xlib.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <X11/extensions/XShm.h>
+
+#define SHM_INVALID ((void *)-1)
 
 typedef struct x11back_t {
     Display *display;
@@ -16,41 +27,83 @@ typedef struct x11back_t {
     int screen;
     XImage *bitmap;
     XVisualInfo vi;
+    XShmSegmentInfo shminfo;
+    int buf_len;
 } x11back_t;
 
 x11back_t X11CTX__ = { 0 };
 x11back_t *x11ctx = &X11CTX__;
 
-int x11back_init(GLFWwindow* glfw_window) {
-    // https://medium.com/@colleagueriley/rgfw-under-the-hood-software-rendering-82f54a6da419
-    x11ctx->display = glfwGetX11Display();
-    x11ctx->window = glfwGetX11Window(glfw_window);
-    x11ctx->gc = XCreateGC(x11ctx->display, x11ctx->window, 0, NULL);
-    x11ctx->screen = DefaultScreen(x11ctx->display);
-    x11ctx->vi.visual = DefaultVisual(x11ctx->display, DefaultScreen(x11ctx->display));
-    int err = XMatchVisualInfo(x11ctx->display, DefaultScreen(x11ctx->display),
-            DefaultDepth(x11ctx->display, x11ctx->screen), TrueColor, &x11ctx->vi);
-    if (!err) { printfd("ERR"); return -1; }
-    x11ctx->bitmap = XCreateImage(
-        x11ctx->display, x11ctx->vi.visual, (unsigned int)x11ctx->vi.depth,
-        ZPixmap, 0, NULL, 0, 0, 32, 0);
+int x11_ensure_size(V2i target_size) {
+    printfd("Requested "V2i_Fmt, V2i_Arg(target_size));
+    int target_buf_len = target_size.x * target_size.y * (int)sizeof(pixel);
+
+    if (target_buf_len > x11ctx->buf_len) {
+        if (x11ctx->shminfo.shmaddr != SHM_INVALID) { // Free.
+            shmdt(x11ctx->shminfo.shmaddr);
+            shmctl(x11ctx->shminfo.shmid, IPC_RMID, NULL);
+        }
+
+        x11ctx->shminfo.shmid = shmget(IPC_PRIVATE, (size_t)target_buf_len, IPC_CREAT|0777);
+        if (x11ctx->shminfo.shmid == -1) { printfd("ERR"); return -1; }
+
+        x11ctx->shminfo.shmaddr = (char*)shmat(x11ctx->shminfo.shmid, 0, 0);
+        if (x11ctx->shminfo.shmaddr == SHM_INVALID) {
+            printfd("ERR: Couldn't allocate.");
+            shmdt(x11ctx->shminfo.shmaddr);
+            return -1;
+        }
+        x11ctx->bitmap->data = x11ctx->shminfo.shmaddr;
+        x11ctx->buf_len = target_buf_len;
+
+        x11ctx->shminfo.readOnly = False;
+        int err = XShmAttach(x11ctx->display, &x11ctx->shminfo);
+        if (!err) {
+            printfd("ERR: Couldn't attach.");
+            shmdt(x11ctx->shminfo.shmaddr);
+            shmctl(x11ctx->shminfo.shmid, IPC_RMID, NULL);
+            return -1;
+        }
+    }
+
+    x11ctx->bitmap->width = target_size.x;
+    x11ctx->bitmap->height = target_size.y;
+    x11ctx->bitmap->bytes_per_line = target_size.x * (int)(sizeof(pixel));
+    printfd("Success.");
     return 0;
 }
 
-void x11_draw_texture(char *buffer, V2i size) {
-    if (size.x != x11ctx->bitmap->width || size.y != x11ctx->bitmap->height) {
-        x11ctx->bitmap->width = size.x;
-        x11ctx->bitmap->height = size.y;
-        x11ctx->bitmap->bytes_per_line = size.x * (int)(sizeof(pixel));
-        //x11ctx->bitmap->data = NULL;
-        //XDestroyImage(x11ctx->bitmap);
-        //x11ctx->bitmap = XCreateImage(
-            //x11ctx->display, x11ctx->vi.visual, (unsigned int)x11ctx->vi.depth,
-            //ZPixmap, 0, NULL, (unsigned int)size.x, (unsigned int)size.y, 32, 0);
-    }
-    x11ctx->bitmap->data = buffer;
-    XPutImage(x11ctx->display, x11ctx->window, x11ctx->gc, x11ctx->bitmap,
-            0, 0, 0, 0, (unsigned int)size.x, (unsigned int)size.y);
+int x11back_init(GLFWwindow* glfw_window) {
+    x11ctx->display   = glfwGetX11Display();
+    x11ctx->window    = glfwGetX11Window(glfw_window);
+    x11ctx->gc        = XCreateGC(x11ctx->display, x11ctx->window, 0, NULL);
+    x11ctx->screen    = DefaultScreen(x11ctx->display);
+    x11ctx->vi.visual = DefaultVisual(x11ctx->display, DefaultScreen(x11ctx->display));
+    x11ctx->shminfo.shmaddr = (char*)SHM_INVALID;
+
+    int err = XMatchVisualInfo(x11ctx->display, DefaultScreen(x11ctx->display),
+        DefaultDepth(x11ctx->display, x11ctx->screen), TrueColor, &x11ctx->vi);
+    if (!err) { printfd("ERR"); return -1; }
+
+    x11ctx->bitmap = XShmCreateImage(
+        x11ctx->display, x11ctx->vi.visual, (unsigned int)x11ctx->vi.depth,
+        ZPixmap, NULL, &x11ctx->shminfo, 500, 500);
+    if (!x11ctx->bitmap) { printfd("ERR"); return -1; }
+
+    return x11_ensure_size((V2i){{500, 500}});
+}
+
+char *x11_get_buffer(void) {
+    return (x11ctx->bitmap->data == SHM_INVALID
+        || x11ctx->bitmap->data == NULL) ?
+        NULL : x11ctx->bitmap->data;
+}
+
+void x11_draw_texture(void) {
+    XShmPutImage(x11ctx->display, x11ctx->window, x11ctx->gc, x11ctx->bitmap,
+            0, 0, 0, 0,
+            (unsigned int)x11ctx->bitmap->width, (unsigned int)x11ctx->bitmap->height, false
+    );
 }
 
 #endif
