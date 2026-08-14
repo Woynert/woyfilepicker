@@ -1,6 +1,17 @@
 /*
    Some relevant docs:
    https://linux.die.net/man/3/xshmattach
+
+   Notes:
+   * Uses double buffer and swap to prevent tearing.
+   * If you see tearing that means you're swapping too fast (uncapped FPS).
+     You've hit the limit of your x11 server processing speed. Even
+     if we wait for "finish reading" events you'll still have reduced FPS
+     because of the wait.
+   * I don't think is worth waiting for the x11 server to notify it has
+     finished reading the buffer. Since we're using GLFW we don't have
+     the guarantee it won't eat it before we can detect it. Also "detecting" it
+     seems to be slow anyway.
     */
 
 #ifndef X11BACK_H
@@ -34,9 +45,21 @@ typedef struct x11back_t {
 x11back_t X11CTX__ = { 0 };
 x11back_t *x11ctx = &X11CTX__;
 
+
+/// @Return the buffer you shall use this frame.
+char *x11_swap_buffer(void) {
+    char *prev = x11ctx->bitmap->data;
+    x11ctx->bitmap->data = x11ctx->bitmap->data == x11ctx->shminfo.shmaddr ?
+        x11ctx->shminfo.shmaddr + x11ctx->buf_len/2 :
+        x11ctx->shminfo.shmaddr;
+    return prev;
+}
+
 int x11_ensure_size(V2i target_size) {
     printfd("Requested "V2i_Fmt, V2i_Arg(target_size));
-    int target_buf_len = target_size.x * target_size.y * (int)sizeof(pixel);
+
+    // ↓↓↓ Multiply by 2 for double buffer.
+    int target_buf_len = target_size.x * target_size.y * (int)sizeof(pixel) * 2;
 
     if (target_buf_len > x11ctx->buf_len) {
         if (x11ctx->shminfo.shmaddr != SHM_INVALID) { // Free.
@@ -53,7 +76,6 @@ int x11_ensure_size(V2i target_size) {
             shmdt(x11ctx->shminfo.shmaddr);
             return -1;
         }
-        x11ctx->bitmap->data = x11ctx->shminfo.shmaddr;
         x11ctx->buf_len = target_buf_len;
 
         x11ctx->shminfo.readOnly = False;
@@ -66,6 +88,7 @@ int x11_ensure_size(V2i target_size) {
         }
     }
 
+    x11ctx->bitmap->data = x11ctx->shminfo.shmaddr;
     x11ctx->bitmap->width = target_size.x;
     x11ctx->bitmap->height = target_size.y;
     x11ctx->bitmap->bytes_per_line = target_size.x * (int)(sizeof(pixel));
