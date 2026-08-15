@@ -59,7 +59,7 @@ void ui_widget_test (Ctx *ctx, uitree_DrawInfo info) {
     info.area.height /= 2;
     //b_DrawRect(info.area, MAGENTA);
     info.area.height /= 10;
-    b_DrawRect(info.area, LIME);
+    b_DrawRect(info.area, DARKGRAY);
     //b_DrawRectLines(info.area, MAGENTA, 1);
 }
 

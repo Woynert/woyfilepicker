@@ -30,17 +30,17 @@ void ctx_load_assets(Ctx *ctx) {
       {{ 0x1F600, 0x1F64F }}, // Emoticons
    };
 
-    wod_font_t font = load_font(ctx->framearena, cstr_SL("./assets/Roboto-Regular.ttf"), 16, (V2i*)ranges, countofi(ranges));
+    wod_font_t font = load_font(ctx->framearena, cstr_SL("./assets/Roboto-Regular.ttf"), 18, (V2i*)ranges, countofi(ranges));
     wassert(!wod_error());
-    stbtt_print_bitmap((unsigned char*)font.bitmap.data, font.bitmap.size.x, font.bitmap.size.y);
+    //stbtt_print_bitmap((unsigned char*)font.bitmap.data, font.bitmap.size.x, font.bitmap.size.y);
     ctx->font1 = font;
-    //free_font(font);
 }
 
 
 void ctx_free(Ctx *ctx) {
     free_image(ctx->icon1);
     ArenaRoot_free(&ctx->framearena_root);
+    free_font(ctx->font1);
 }
 
 #endif // !STATE_INIT_H

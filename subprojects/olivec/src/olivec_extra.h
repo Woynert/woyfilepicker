@@ -55,7 +55,8 @@ OLIVECDEF void olivec_bitmap_blend(Olivec_Canvas oc, int x, int y, int w, int h,
             size_t nx = (x - xa)*((int) sprite.width)/w;
             size_t ny = (y - ya)*((int) sprite.height)/h;
             char value = OLIVEC_PIXEL(sprite, nx, ny);
-            olivec_blend_color(&OLIVEC_PIXEL(oc, x, y), OLIVEC_RGBA(OLIVEC_RED(tint), OLIVEC_RED(tint), OLIVEC_RED(tint), value));
+            olivec_blend_color(&OLIVEC_PIXEL(oc, x, y), OLIVEC_RGBA(OLIVEC_RED(tint), OLIVEC_GREEN(tint), OLIVEC_BLUE(tint), value));
+            // TODO: mix value with tint.alpha.
         }
     }
 }

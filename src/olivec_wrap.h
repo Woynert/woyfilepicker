@@ -6,6 +6,8 @@
 #define OLIVECDEF
 #include "olive.h"
 
+#define OLIVEC_RGBA(r, g, b, a) ((((r)&0xFF)<<(8*0)) | (((g)&0xFF)<<(8*1)) | (((b)&0xFF)<<(8*2)) | (((a)&0xFF)<<(8*3)))
+
 Olivec_Canvas olivewrap_canvas = { 0 };
 
 void olivewrap_set_buffer(u32 *pixels, V2i size, int stride) {
@@ -27,7 +29,9 @@ void olivewrap_draw_texture_bitmap(Image img, Rect2i source, Rect2i dest, Color 
     olivec_bitmap_blend(olivewrap_canvas, dest.x, dest.y, dest.width, dest.height,
         olivec_subbitmap(
             olivec_bitmap(img.data, (size_t)img.size.x, (size_t)img.size.y, (size_t)img.size.x),
-            source.x, source.y, source.width, source.height), tint.val);
+            source.x, source.y, source.width, source.height),
+        tint.val);
+        //OLIVEC_RGBA((u32)tint.rgba.r, (u32)tint.rgba.g, (u32)tint.rgba.b, (u32)tint.rgba.a));
 }
 
 Drawer olivewrap_make_drawer(void) {

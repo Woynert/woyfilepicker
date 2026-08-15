@@ -151,7 +151,7 @@ int main(void) {
                 /*draw_image(ctx->icon1, v2i(100,200));*/
                 /*draw_image_ext(ctx->icon1, (Rect2i){.size=ctx->icon1.size}, (Rect2i){{100,200,50,50}});*/
 
-                draw_text(ctx->font1, cstr_SL("The quick brown fox jumps over the lazy dog éjpyóç"), v2i(0,0));
+                draw_text(ctx->font1, cstr_SL("The quick brown fox jumps over the lazy dog éjpyóç"), v2i(0,300), MAGENTA);
             }
 
 

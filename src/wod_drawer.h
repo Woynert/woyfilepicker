@@ -84,6 +84,29 @@ void wod__set_error(int err) {
     wod__ctx.error = err;
 }
 
+
+/// @Returns NULL if not found.
+const stbtt_packedchar* font_get_codepoint_info(wod_font_t font, int codepoint) {
+    int index_offset = 0;
+    for (int i = 0; i < font.ranges_size; ++i) {
+        V2i range = font.ranges[i];
+        int start = range.c[0];
+        int end = range.c[1];
+        //printfd("RANGE start %d end %d", start, end);
+        if (int_in_range_inclusive(start, end, codepoint)) {
+            int idx = index_offset + (codepoint - start);
+            if (int_in_range_inclusive(0, font.packed_char_info_size-1, idx)) {
+                return &font.packed_char_info[idx];
+            } else {
+                printferr("Codepoint(%d) int range(%d,%d) but not found", codepoint, start, end);
+                return NULL;
+            }
+        }
+        index_offset += end - start +1;
+    }
+    return NULL;
+}
+
 // Prefer to call load_file_str.
 wod_file_t load_file(const char *path) {
     char *buffer = NULL;
@@ -148,7 +171,7 @@ void free_image(Image img) {
     img = (Image) { 0 };
 }
 
-wod_font_t load_font(Arena scratch, strview_t font_path, int font_size, V2i *ranges, int range_count) {
+wod_font_t wod__load_font(Arena scratch, strview_t font_path, int font_size, V2i *ranges, int range_count) {
     char *bitmap = NULL;
     wod_font_t font = { 0 };
     wod_file_t file = load_file_str(font_path, scratch);
@@ -216,6 +239,14 @@ wod_font_t load_font(Arena scratch, strview_t font_path, int font_size, V2i *ran
     };
 }
 
+wod_font_t load_font(Arena scratch, strview_t font_path, int font_size, V2i *ranges, int range_count) {
+    wod_font_t font = wod__load_font(scratch, font_path, font_size, ranges, range_count);
+    // Forcing space to have an xoff2.
+    stbtt_packedchar *space = (stbtt_packedchar *)font_get_codepoint_info(font, ' ');
+    if (space) { if (space->xoff2 == 0) { space->xoff2 = roundf(space->xadvance); }}
+    return font;
+}
+
 void free_font(wod_font_t font) {
     free_image(font.bitmap);
     if (font.ranges)           { free((void*)font.ranges); }
@@ -272,29 +303,8 @@ void draw_image(Image img, V2i pos) {
     wod__drawer.draw_texture(img, (Rect2i){.size=img.size}, (Rect2i){.pos=pos,.size=img.size});
 }
 
-/// @Returns NULL if not found.
-stbtt_packedchar* font_get_codepoint_info(wod_font_t font, int codepoint) {
-    int index_offset = 0;
-    for (int i = 0; i < font.ranges_size; ++i) {
-        V2i range = font.ranges[i];
-        int start = range.c[0];
-        int end = range.c[1];
-        //printfd("RANGE start %d end %d", start, end);
-        if (int_in_range_inclusive(start, end, codepoint)) {
-            int idx = index_offset + (codepoint - start);
-            if (int_in_range_inclusive(0, font.packed_char_info_size-1, idx)) {
-                return &font.packed_char_info[idx];
-            } else {
-                printferr("Codepoint(%d) int range(%d,%d) but not found", codepoint, start, end);
-                return NULL;
-            }
-        }
-        index_offset += end - start +1;
-    }
-    return NULL;
-}
 
-void draw_text(wod_font_t font, const strview_t text, V2i pos) {
+void draw_text(wod_font_t font, const strview_t text, V2i pos, Color color) {
     int xoffset = 0;
     int baseline = pos.y + font.font_size;
 
@@ -303,8 +313,9 @@ void draw_text(wod_font_t font, const strview_t text, V2i pos) {
     int codepoint_size = 0;
     int codepoint;
 
+
     bool try_get_callback = true;
-    stbtt_packedchar *cp_info_fallback = NULL;
+    const stbtt_packedchar *cp_info_fallback = NULL;
 
     while (available_bytes > 0) {
         codepoint = GetCodepointNext_woy(bytes, &codepoint_size, available_bytes);
@@ -312,7 +323,7 @@ void draw_text(wod_font_t font, const strview_t text, V2i pos) {
         bytes += codepoint_size;
         printfd("Codepoint %lc", codepoint);
 
-        stbtt_packedchar *cp_info = font_get_codepoint_info(font, codepoint);
+        const stbtt_packedchar *cp_info = font_get_codepoint_info(font, codepoint);
         if (!cp_info) { // ↓↓↓ This feels to noisy, consider just drawing a rectangle instead.
             if (cp_info_fallback) {
                 cp_info = cp_info_fallback;
@@ -327,23 +338,14 @@ void draw_text(wod_font_t font, const strview_t text, V2i pos) {
             if (!cp_info) { continue; }
         }
 
-        //printfd("%d %d %d %d", cp_info->x0, cp_info->x1, cp_info->y0, cp_info->y1);
-        printfd("%f %f %f %f %f",
-                cp_info->xoff,
-                cp_info->yoff,
-                cp_info->xadvance,
-                cp_info->xoff2,
-                cp_info->yoff2
-        );
         Rect2i rect = (Rect2i) {{ cp_info->x0, cp_info->y0, cp_info->x1 - cp_info->x0, cp_info->y1 - cp_info->y0 }};
         wod__drawer.draw_texture_bitmap(font.bitmap,
-                rect,
-                (Rect2i) {{ pos.x +xoffset +(int)roundf(cp_info->xoff), baseline + (int)roundf(cp_info->yoff), rect.width, rect.height }},
-                RED
-            );
-        //xoffset += cp_info->x1 - cp_info->x0;
-        //roun
-        xoffset += (int)roundf(cp_info->xadvance);
+            rect,
+            (Rect2i) {{ pos.x +xoffset +(int)cp_info->xoff, baseline + (int)cp_info->yoff, rect.width, rect.height }},
+            color
+        );
+
+        xoffset += (int)cp_info->xoff2;
     }
 }
 
