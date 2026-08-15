@@ -2,6 +2,7 @@
 #define WOD_H
 
 #include "stb_image.h"
+#include "stb_truetype.h"
 #include "arena.h"
 #include "arena_extra.h"
 #include "strview.h"
@@ -11,6 +12,7 @@
 #include "portable_utils.h"
 #include "la_extra.h"
 #include "raylib_lite.h"
+#include "stbtt_extra.h"
 #include <stdint.h>
 
 #define STB_RGBA 4
@@ -20,6 +22,14 @@ typedef int32_t  i32;
 typedef uint32_t u32;
 typedef float    f32;
 
+typedef union {
+    strview_t view;
+    struct {
+        const char* data;
+        int size;
+    };
+} wod_file_t;
+
 typedef struct {
     V2i size;
     union {
@@ -27,6 +37,20 @@ typedef struct {
         u32 *pixels; // Always rgba.
     };
 } Image;
+
+typedef struct {
+    int font_size;
+
+    //const char *bitmap;
+    Image bitmap;
+    stbtt_packedchar* packed_char_info;
+    int packed_char_info_size;
+
+    // Codepoint range inclusive. Even idx is start, Odd idx is end.
+    // e.g.: ranges_size = 4; (ranges[0], ranges[1]), (ranges[2], ranges[3]).
+    int (*ranges)[2];
+    int ranges_size;
+} wod_font_t;
 
 struct {
     int error;
@@ -46,7 +70,12 @@ Arena wod__get_arena(void) {
 }
 
 
-int wod_get_error(void) {
+int wod_get_error(void) { // TODO: DEPRECATE ME
+    int err = wod__ctx.error;
+    wod__ctx.error = 0;
+    return err;
+}
+int wod_error(void) {
     int err = wod__ctx.error;
     wod__ctx.error = 0;
     return err;
@@ -54,6 +83,50 @@ int wod_get_error(void) {
 
 void wod__set_error(int err) {
     wod__ctx.error = err;
+}
+
+// Prefer to call load_file_str.
+wod_file_t load_file(const char *path) {
+    char *buffer = NULL;
+    FILE *file = fopen(path, "rb");
+    if (!file) { goto exit_abort; }
+    int err = fseek(file, 0, SEEK_END);
+    if (err != 0) { goto exit_abort; }
+    int size = 0;
+    {
+        long long_size = ftell(file);
+        if (long_size > INT_MAX) {
+            printfd("ERR: File ("PRIbyte") is larget than INT_MAX ("PRIbyte")", PRIbytearg(long_size), PRIbytearg(INT_MAX));
+            goto exit_abort;
+        }
+        size = (int)long_size;
+    }
+    fseek(file, 0, SEEK_SET);
+    buffer = (char*)malloc((size_t)size);
+    if (!buffer) { goto exit_abort; }
+    unsigned long bytes_read = fread(buffer, 1, (size_t)size, file); // Read 1 byte size times.
+    if (bytes_read != (unsigned long)size) { goto exit_abort; }
+    if ((0)) {
+        exit_abort:
+        if (buffer) { free(buffer); }
+        wod__set_error(-1);
+        return (wod_file_t) { 0 };
+    }
+    if (file) { fclose(file); }
+    wod__set_error(0);
+    return (wod_file_t) { .data = buffer, .size = size, };
+}
+
+wod_file_t load_file_str(const strview_t path, Arena scratch) {
+    strbuf_t *path_buf = strbuf_create_with_arena(path, &scratch);
+    return load_file(path_buf->cstr);
+}
+
+void free_file(wod_file_t file) {
+    if (file.data) {
+        free((void*)file.data);
+    }
+    file = (wod_file_t) { 0 };
 }
 
 Image load_image(strview_t path) {
@@ -70,8 +143,82 @@ Image load_image(strview_t path) {
 }
 
 void free_image(Image img) {
-    stbi_image_free(img.data);
+    if (img.data) {
+        stbi_image_free(img.data);
+    }
     img = (Image) { 0 };
+}
+
+wod_font_t load_font(Arena scratch, strview_t font_path, int font_size, int (*ranges)[2], int range_count) {
+    char *bitmap = NULL;
+    wod_font_t font = { 0 };
+    wod_file_t file = load_file_str(font_path, scratch);
+    if (wod_error()) { goto quit_abort; }
+
+    int font_index = 0;
+    int padding = 1;
+    int width = 300;
+    int height = 0;
+
+    stbtt_pack_range *pack_ranges = make_stbtt_pack_range(font_size, ranges, range_count, &scratch);
+
+    int err = stbtt_packed_bitmap_calculate_minimum_height_for_given_width(
+            scratch, width, &height, padding, (unsigned char*)file.data, font_index, pack_ranges, range_count);
+    if (err) { goto quit_abort; }
+
+    bitmap = malloc_new(char, width * height);
+    err = stbtt_create_bitmap_ranges((unsigned char*)file.data, font_index, padding, (unsigned char*)bitmap, width, height, 0, pack_ranges, range_count);
+    if (err) { goto quit_abort; }
+
+    // Success: Now copy data to final storage.
+    {
+        font.packed_char_info_size = 0;
+        for (int i = 0; i < range_count; ++i) {
+            font.packed_char_info_size += ranges[i][1] - ranges[i][0] +1; // Inclusive
+        }
+
+        font.packed_char_info = malloc_new(stbtt_packedchar, font.packed_char_info_size);
+        if (!font.packed_char_info) { goto quit_abort; }
+
+        for (int i = 0; i < range_count; ++i) {
+            stbtt_pack_range *pack_range = &pack_ranges[i];
+            for (int k = 0; k < pack_ranges->num_chars; ++k) {
+                font.packed_char_info[i] = pack_range->chardata_for_range[k];
+            }
+        }
+
+        font.ranges = (int (*)[2])malloc(sizeof(int (*)[2]) * (size_t)(range_count)); // This looks ugly.
+        if (!font.ranges) { goto quit_abort; }
+        memcpy(font.ranges, ranges, (size_t)range_count * sizeof(int (*)[2]));
+    }
+
+    if ((0)) {
+        quit_abort:
+        if (bitmap)                { free((void*)bitmap); }
+        if (font.ranges)           { free((void*)font.ranges); }
+        if (font.packed_char_info) { free((void*)font.packed_char_info); }
+        free_file(file);
+        wod__set_error(-1);
+        return (wod_font_t) { 0 };
+    }
+
+    free_file(file);
+    wod__set_error(0);
+    return (wod_font_t) {
+        .font_size             = font_size,
+        .bitmap                = (Image) { .size=(V2i){{ width, height}}, .data=bitmap, },
+        .packed_char_info      = font.packed_char_info,
+        .packed_char_info_size = font.packed_char_info_size,
+        .ranges                = font.ranges,
+        .ranges_size           = range_count,
+    };
+}
+
+void free_font(wod_font_t font) {
+    free_image(font.bitmap);
+    if (font.ranges)           { free((void*)font.ranges); }
+    if (font.packed_char_info) { free((void*)font.packed_char_info); }
+    font = (wod_font_t) { 0 };
 }
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

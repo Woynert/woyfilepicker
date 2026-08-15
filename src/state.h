@@ -7,6 +7,8 @@
 typedef struct Ctx {
     V2i window_size;
     Image icon1;
+    ArenaRoot framearena_root;
+    Arena framearena;
 } Ctx;
 
 #endif

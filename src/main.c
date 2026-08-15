@@ -144,6 +144,7 @@ int main(void) {
                 draw_all(ctx);
                 /*draw_rect((Rect2i) {{ 200 + (int)(((float)(ticks % 100)/100.0f) * 200.0f), 200, 50, 60}}, BLUE);*/
                 draw_image(ctx->icon1, v2i(100,200));
+                draw_image_ext(ctx->icon1, (Rect2i){.size=ctx->icon1.size}, (Rect2i){{100,200,50,50}});
             }
 
 
@@ -153,6 +154,7 @@ int main(void) {
             x11_draw_texture();
         }
 
+        ctx->framearena = ArenaRoot_get_arena(ctx->framearena_root);
 
         glfwPollEvents();
         long long frame_time = (get_system_ns() - FRAME_START_TIME_NS);
