@@ -46,9 +46,8 @@ typedef struct {
     stbtt_packedchar* packed_char_info;
     int packed_char_info_size;
 
-    // Codepoint range inclusive. Even idx is start, Odd idx is end.
-    // e.g.: ranges_size = 4; (ranges[0], ranges[1]), (ranges[2], ranges[3]).
-    int (*ranges)[2];
+    // Codepoint range is inclusive.
+    V2i *ranges;
     int ranges_size;
 } wod_font_t;
 
@@ -149,7 +148,7 @@ void free_image(Image img) {
     img = (Image) { 0 };
 }
 
-wod_font_t load_font(Arena scratch, strview_t font_path, int font_size, int (*ranges)[2], int range_count) {
+wod_font_t load_font(Arena scratch, strview_t font_path, int font_size, V2i *ranges, int range_count) {
     char *bitmap = NULL;
     wod_font_t font = { 0 };
     wod_file_t file = load_file_str(font_path, scratch);
@@ -174,22 +173,25 @@ wod_font_t load_font(Arena scratch, strview_t font_path, int font_size, int (*ra
     {
         font.packed_char_info_size = 0;
         for (int i = 0; i < range_count; ++i) {
-            font.packed_char_info_size += ranges[i][1] - ranges[i][0] +1; // Inclusive
+            font.packed_char_info_size += ranges[i].c[1] - ranges[i].c[0] +1; // Inclusive
         }
 
         font.packed_char_info = malloc_new(stbtt_packedchar, font.packed_char_info_size);
         if (!font.packed_char_info) { goto quit_abort; }
 
+        int offset = 0;
         for (int i = 0; i < range_count; ++i) {
-            stbtt_pack_range *pack_range = &pack_ranges[i];
-            for (int k = 0; k < pack_ranges->num_chars; ++k) {
-                font.packed_char_info[i] = pack_range->chardata_for_range[k];
+            stbtt_pack_range *range = &pack_ranges[i];
+            for (int k = 0; k < range->num_chars; ++k) {
+                font.packed_char_info[offset + k] = range->chardata_for_range[k];
             }
+            offset += range->num_chars;
         }
 
-        font.ranges = (int (*)[2])malloc(sizeof(int (*)[2]) * (size_t)(range_count)); // This looks ugly.
+        //font.ranges = (int (*)[2])malloc(sizeof(V2i) * (size_t)(range_count)); // This looks ugly.
+        font.ranges = malloc_new(V2i, range_count);
         if (!font.ranges) { goto quit_abort; }
-        memcpy(font.ranges, ranges, (size_t)range_count * sizeof(int (*)[2]));
+        memcpy(font.ranges, ranges, (size_t)range_count * sizeof(V2i));
     }
 
     if ((0)) {
@@ -232,6 +234,7 @@ void free_font(wod_font_t font) {
 typedef void (*wod_set_buffer_t)   (u32 *pixels, V2i size, int stride);
 typedef void (*wod_draw_rect_t)    (Rect2i rect, Color color);
 typedef void (*wod_draw_texture_t) (Image img, Rect2i source, Rect2i dest);
+typedef void (*wod_draw_texture_bitmap_t) (Image img, Rect2i source, Rect2i dest, Color tint);
 //typedef void (*wod_DrawRectLinesCallback_t) (Rect2i rect, Color color, int thickness);
 //typedef void (*wod_DrawTextCallback_t) (strview_t str, intptr_t font, V2i position, int font_size, int spacing, int textLineSpacing, Color tint);
 //typedef void (*wod_ScissorCallback_t) (bool start_end, Rect2i rect);
@@ -240,6 +243,7 @@ typedef struct {
     wod_set_buffer_t   set_buffer;
     wod_draw_rect_t    draw_rect;
     wod_draw_texture_t draw_texture;
+    wod_draw_texture_bitmap_t draw_texture_bitmap;
 } Drawer;
 
 Drawer wod__drawer;
@@ -266,6 +270,81 @@ void draw_image_ext(Image img, Rect2i source, Rect2i dest) {
 
 void draw_image(Image img, V2i pos) {
     wod__drawer.draw_texture(img, (Rect2i){.size=img.size}, (Rect2i){.pos=pos,.size=img.size});
+}
+
+/// @Returns NULL if not found.
+stbtt_packedchar* font_get_codepoint_info(wod_font_t font, int codepoint) {
+    int index_offset = 0;
+    for (int i = 0; i < font.ranges_size; ++i) {
+        V2i range = font.ranges[i];
+        int start = range.c[0];
+        int end = range.c[1];
+        //printfd("RANGE start %d end %d", start, end);
+        if (int_in_range_inclusive(start, end, codepoint)) {
+            int idx = index_offset + (codepoint - start);
+            if (int_in_range_inclusive(0, font.packed_char_info_size-1, idx)) {
+                return &font.packed_char_info[idx];
+            } else {
+                printferr("Codepoint(%d) int range(%d,%d) but not found", codepoint, start, end);
+                return NULL;
+            }
+        }
+        index_offset += end - start +1;
+    }
+    return NULL;
+}
+
+void draw_text(wod_font_t font, const strview_t text, V2i pos) {
+    int xoffset = 0;
+    int baseline = pos.y + font.font_size;
+
+    char* bytes = (char*)text.data;
+    int available_bytes = text.size;
+    int codepoint_size = 0;
+    int codepoint;
+
+    bool try_get_callback = true;
+    stbtt_packedchar *cp_info_fallback = NULL;
+
+    while (available_bytes > 0) {
+        codepoint = GetCodepointNext_woy(bytes, &codepoint_size, available_bytes);
+        available_bytes -= codepoint_size;
+        bytes += codepoint_size;
+        printfd("Codepoint %lc", codepoint);
+
+        stbtt_packedchar *cp_info = font_get_codepoint_info(font, codepoint);
+        if (!cp_info) { // ↓↓↓ This feels to noisy, consider just drawing a rectangle instead.
+            if (cp_info_fallback) {
+                cp_info = cp_info_fallback;
+            } else if (try_get_callback) {
+                try_get_callback ^= 1;
+                cp_info_fallback = font_get_codepoint_info(font, 0xFFFD); //'�'
+                if (!try_get_callback) {
+                    cp_info_fallback = font_get_codepoint_info(font, (int)'?');
+                }
+                cp_info = cp_info_fallback;
+            }
+            if (!cp_info) { continue; }
+        }
+
+        //printfd("%d %d %d %d", cp_info->x0, cp_info->x1, cp_info->y0, cp_info->y1);
+        printfd("%f %f %f %f %f",
+                cp_info->xoff,
+                cp_info->yoff,
+                cp_info->xadvance,
+                cp_info->xoff2,
+                cp_info->yoff2
+        );
+        Rect2i rect = (Rect2i) {{ cp_info->x0, cp_info->y0, cp_info->x1 - cp_info->x0, cp_info->y1 - cp_info->y0 }};
+        wod__drawer.draw_texture_bitmap(font.bitmap,
+                rect,
+                (Rect2i) {{ pos.x +xoffset +(int)roundf(cp_info->xoff), baseline + (int)roundf(cp_info->yoff), rect.width, rect.height }},
+                RED
+            );
+        //xoffset += cp_info->x1 - cp_info->x0;
+        //roun
+        xoffset += (int)roundf(cp_info->xadvance);
+    }
 }
 
 /*

@@ -58,6 +58,11 @@ void hook_glfw_callbacks(GLFWwindow* w, Ctx *ctx) {
     glfwSetWindowRefreshCallback(w, glfw_window_refresh_callback);
 }
 
+void test1(void) {
+    wod_file_t file = load_file("./assets/imgdemox32.png");
+    wassert(!wod_error());
+    free_file(file);
+}
 
 int main(void) {
     GLFWwindow* window;
@@ -140,11 +145,13 @@ int main(void) {
                 /*}*/
 
                 /*olivec_fill(olivewrap_canvas, 0xFF181818);*/
-                draw_rect((Rect2i) {.size=ctx->window_size}, BLUE);
+                draw_rect((Rect2i) {.size=ctx->window_size}, BLACK);
                 draw_all(ctx);
                 /*draw_rect((Rect2i) {{ 200 + (int)(((float)(ticks % 100)/100.0f) * 200.0f), 200, 50, 60}}, BLUE);*/
-                draw_image(ctx->icon1, v2i(100,200));
-                draw_image_ext(ctx->icon1, (Rect2i){.size=ctx->icon1.size}, (Rect2i){{100,200,50,50}});
+                /*draw_image(ctx->icon1, v2i(100,200));*/
+                /*draw_image_ext(ctx->icon1, (Rect2i){.size=ctx->icon1.size}, (Rect2i){{100,200,50,50}});*/
+
+                draw_text(ctx->font1, cstr_SL("The quick brown fox jumps over the lazy dog éjpyóç"), v2i(0,0));
             }
 
 

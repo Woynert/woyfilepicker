@@ -6,6 +6,7 @@
 #include "stb_rect_pack.h"
 #include "stb_truetype.h"
 #include "arena.h"
+#include "la.h"
 
 
 /// @Returns error.
@@ -35,9 +36,11 @@ int stbtt_packed_bitmap_calculate_minimum_height_for_given_width(
          .padding = padding,
       };
       stbtt_PackFontRangesGatherRects(&spc, &info, ranges, num_ranges, rects);
-      // ↑ Returns total_codepoints which we already have so it's safe to ignore.
-      // Note: This function only requires:
-      // spc->h_oversample, spc->v_oversample, spc->skip_missing, spc->padding.
+      // Note:
+      // * Only purpose is to get the rects.
+      // * Returns total_codepoints which we already have so it's safe to ignore.
+      // * This function only requires:
+      //   spc->h_oversample, spc->v_oversample, spc->skip_missing, spc->padding.
    }
 
    // Find optimal height by binary search.
@@ -86,12 +89,12 @@ int stbtt_packed_bitmap_calculate_minimum_height_for_given_width(
 }
 
 
-stbtt_pack_range *make_stbtt_pack_range(int font_size, int (*ranges)[2], int ranges_size, Arena *perm)
+stbtt_pack_range *make_stbtt_pack_range(int font_size, V2i *ranges, int ranges_size, Arena *perm)
 {
    stbtt_pack_range *pack_ranges = arena_new(perm, stbtt_pack_range, ranges_size);
    for (int i = 0; i < ranges_size; ++i) {
-      int start = ranges[i][0];
-      int end   = ranges[i][1];
+      int start = ranges[i].c[0];
+      int end   = ranges[i].c[1];
       stbtt_packedchar *chardata = arena_new(perm, stbtt_packedchar, end - start +1); // Inclusive.
       pack_ranges[i] = (stbtt_pack_range) {
          .font_size = (float)font_size,
@@ -101,30 +104,6 @@ stbtt_pack_range *make_stbtt_pack_range(int font_size, int (*ranges)[2], int ran
       };
    }
    return pack_ranges;
-
-   //int total_codepoints = 0;
-   //for (int i = 0; i < ranges_size; i += 2) {
-      //total_codepoints += ranges[i+1] - ranges[i] +1; // Inclusive
-   //}
-
-   //int *codepoints = arena_new(perm, int, total_codepoints);
-   //int codepoint_count = 0;
-
-   //for (int i = 0; i < ranges_size; i += 2) {
-      //for (int j = ranges[i]; j <= ranges[i+1]; ++j) {
-         //codepoints[codepoint_count] = j;
-         //++codepoint_count;
-      //}
-   //}
-   //wassert(codepoint_count == total_codepoints);
-
-   //stbtt_packedchar *chardata = arena_new(perm, stbtt_packedchar, total_codepoints);
-   //return (stbtt_pack_range) {
-      //.font_size = (float)font_size,
-      //.num_chars = total_codepoints,
-      //.array_of_unicode_codepoints = codepoints,
-      //.chardata_for_range = chardata,
-   //};
 }
 
 /// @Returns error.

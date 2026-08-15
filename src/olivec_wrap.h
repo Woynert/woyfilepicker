@@ -23,11 +23,19 @@ void olivewrap_draw_texture(Image img, Rect2i source, Rect2i dest) {
             source.x, source.y, source.width, source.height));
 }
 
+void olivewrap_draw_texture_bitmap(Image img, Rect2i source, Rect2i dest, Color tint) {
+    olivec_bitmap_blend(olivewrap_canvas, dest.x, dest.y, dest.width, dest.height,
+        olivec_subbitmap(
+            olivec_bitmap(img.data, (size_t)img.size.x, (size_t)img.size.y, (size_t)img.size.x),
+            source.x, source.y, source.width, source.height), tint.val);
+}
+
 Drawer olivewrap_make_drawer(void) {
     return (Drawer) {
         .set_buffer = olivewrap_set_buffer,
         .draw_rect = olivewrap_draw_rect,
         .draw_texture = olivewrap_draw_texture,
+        .draw_texture_bitmap = olivewrap_draw_texture_bitmap,
     };
 }
 

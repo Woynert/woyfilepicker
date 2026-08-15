@@ -20,20 +20,21 @@ void ctx_load_assets(Ctx *ctx) {
     wassert(!wod_error());
     free_file(file);
 
-    const int ranges[][2] = { // Ranges are inclusive
-        { 0xFFFD,  0xFFFD  }, // (�) codepoint
-        { 32,      127     }, // Basic latin
-        { 0x00A1,  0x00FF  }, // C1 Controls and Latin-1 Supplement
-        { 0x0100,  0x017F  }, // Latin Extended-A
-        { 0x0180,  0x024F  }, // Latin Extended-B
-        { 0x1F300, 0x1F5FF }, // Miscellaneous Symbols and Pictographs
-        { 0x1F600, 0x1F64F }, // Emoticons
-    };
+   const V2i ranges[] = { // Ranges are inclusive
+      {{ 0xFFFD,  0xFFFD }},  // (�) codepoint
+      {{ 32,      127 }},     // Basic latin
+      {{ 0x00A1,  0x00FF }},  // C1 Controls and Latin-1 Supplement
+      {{ 0x0100,  0x017F }},  // Latin Extended-A
+      {{ 0x0180,  0x024F }},  // Latin Extended-B
+      {{ 0x1F300, 0x1F5FF }}, // Miscellaneous Symbols and Pictographs
+      {{ 0x1F600, 0x1F64F }}, // Emoticons
+   };
 
-    wod_font_t font = load_font(ctx->framearena, cstr_SL("./assets/Roboto-Regular.ttf"), 10, (int(*)[2])ranges, countofi(ranges));
+    wod_font_t font = load_font(ctx->framearena, cstr_SL("./assets/Roboto-Regular.ttf"), 16, (V2i*)ranges, countofi(ranges));
     wassert(!wod_error());
     stbtt_print_bitmap((unsigned char*)font.bitmap.data, font.bitmap.size.x, font.bitmap.size.y);
-    free_font(font);
+    ctx->font1 = font;
+    //free_font(font);
 }
 
 
