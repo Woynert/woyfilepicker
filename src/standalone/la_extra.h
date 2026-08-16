@@ -65,6 +65,20 @@ bool CheckCollisionPointReci(V2i point, Rect2i rec) {
     return ((point.x >= rec.x) && (point.x < (rec.x + rec.width)) && (point.y >= rec.y) && (point.y < (rec.y + rec.height)));
 }
 
+bool Rect2i_collides_V2i (Rect2i rect, V2i point) {
+    // (left -X, right +X, up -Y, down +Y)
+    int left   = rect.pos.x;
+    int right  = rect.pos.x + rect.size.x;
+    int top    = rect.pos.y;
+    int bottom = rect.pos.y + rect.size.y;
+    int x = point.x;
+    int y = point.y;
+    return ! (
+        left > x || x > right ||
+        top > y || y > bottom
+    );
+}
+
 
 #define Rect2i_Fmt "Rect2i(%d, %d, %d, %d)"
 #define Rect2i_Arg(r) r.x, r.y, r.width, r.height

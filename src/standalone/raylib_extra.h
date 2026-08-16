@@ -369,21 +369,6 @@ bool Rect2i_collides_Rect2i (Rect2i lhs, Rect2i rhs) {
     );
 }
 
-bool Rect2i_collides_V2i (Rect2i rect, V2i point) {
-    // (left -X, right +X, up -Y, down +Y)
-    int left   = rect.pos.x;
-    int right  = rect.pos.x + rect.size.x;
-    int top    = rect.pos.y;
-    int bottom = rect.pos.y + rect.size.y;
-    int x = point.x;
-    int y = point.y;
-    return ! (
-        left > x || x > right ||
-        top > y || y > bottom
-    );
-}
-
-
 bool Rect2i_is_out_of_bounds(Rect2i rect, Rect2i bounds) {
     return (rect.x < bounds.x || rect.x >= bounds.width ||
         rect.y < bounds.x || rect.y >= bounds.height ||

@@ -13,6 +13,7 @@
 #include "uitree.h"
 #include "state.h"
 #include "ui_common.h"
+#include "x11back.h"
 
 
 #define WIDGET__TABLE \
@@ -59,11 +60,20 @@ void ui_widget_test (Ctx *ctx, uitree_DrawInfo info) {
     info.area.height /= 2;
     //b_DrawRect(info.area, MAGENTA);
     info.area.height /= 10;
-    b_DrawRect(info.area, DARKGRAY);
-    //b_DrawRectLines(info.area, MAGENTA, 1);
+    b_DrawRect(info.area, GREEN);
+
+    Rect2i btn = {{ 20, 20, 100, 50 }};
+    V2i mouse = winput_mouse_pos();
+
+    if (Rect2i_collides_V2i(btn, mouse)) {
+        b_DrawRect(btn, BLUE);
+    } else {
+        b_DrawRect(btn, GRAY);
+    }
+    //b_DrawRectLines(btn, MAGENTA, 1);
 }
 
-void draw_all(Ctx *ctx) {
+void draw_all(Ctx *ctx, const bool force_redraw) {
 
     static Uitree tree = { 0 };
     static Uitree *t = &tree;
@@ -71,6 +81,7 @@ void draw_all(Ctx *ctx) {
     if (!setup) { setup = true; uitree_create(t); }
 
     uitree_build_start(t, (Rect2i){ .size=ctx->window_size });
+    drawbuf_draw_start();
 
     uitree_Node widget;
     uitree_Node con_tree = uitree_container_dumb(widget_stack);
@@ -88,7 +99,18 @@ void draw_all(Ctx *ctx) {
         drawbuf_set_layer((uint8_t)depth);
         widget_func[draw.user_draw_func_id](ctx, draw);
     }
-    drawbuf_draw_all();
+
+    if (force_redraw || drawbuf_do_buffers_differ()) {
+        draw_rect((Rect2i) {.size=ctx->window_size}, BLACK);
+        printfd(ANSI_MAG"Must redraw. "Bool_Fmt"!!!!!!1", Bool_Arg(drawbuf_do_buffers_differ()));
+        drawbuf_draw_end();
+        //drawbuf_swap();
+        // TODO NONE OF THIS SHOULD BE HERE.
+        draw_text(ctx->font1, cstr_SL("The quick brown fox jumps over the lazy dog éjpyóç"), v2i(0,300), MAGENTA);
+        rgba_to_bgra((u32*)x11_get_buffer(), (Rect2i){.size=ctx->window_size}, ctx->window_size.x);
+        char *buffer = x11_swap_buffer();
+        wod_set_buffer((u32*)buffer, ctx->window_size, ctx->window_size.x);
+    }
 
     //printfd("Arena consumption is "PRIbyte" out of "PRIbyte, PRIbytearg((1 << 20) - (t->arena.end - t->arena.beg)), PRIbytearg(1 << 20));
 }

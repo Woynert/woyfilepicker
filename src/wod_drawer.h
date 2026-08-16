@@ -118,7 +118,7 @@ wod_file_t load_file(const char *path) {
     {
         long long_size = ftell(file);
         if (long_size > INT_MAX) {
-            printfd("ERR: File ("PRIbyte") is larget than INT_MAX ("PRIbyte")", PRIbytearg(long_size), PRIbytearg(INT_MAX));
+            printferr("ERR: File ("PRIbyte") is larger than INT_MAX ("PRIbyte")", PRIbytearg(long_size), PRIbytearg(INT_MAX));
             goto exit_abort;
         }
         size = (int)long_size;
@@ -158,7 +158,7 @@ Image load_image(strview_t path) {
     Image img = { 0 };
     img.pixels = (uint32_t *)stbi_load(path_buf->cstr, &img.size.x, &img.size.y, NULL, STB_RGBA);
     if (img.pixels == NULL) {
-        printfd("ERROR: Could not load file `"PRIstrw"`: %s\n", PRIstrarg(path), stbi_failure_reason());
+        printferr("Could not load file `"PRIstrw"`: %s\n", PRIstrarg(path), stbi_failure_reason());
         wod__set_error(-1);
     }
     return img;
@@ -321,7 +321,7 @@ void draw_text(wod_font_t font, const strview_t text, V2i pos, Color color) {
         codepoint = GetCodepointNext_woy(bytes, &codepoint_size, available_bytes);
         available_bytes -= codepoint_size;
         bytes += codepoint_size;
-        printfd("Codepoint %lc", codepoint);
+        //printfd("Codepoint %lc", codepoint);
 
         const stbtt_packedchar *cp_info = font_get_codepoint_info(font, codepoint);
         if (!cp_info) { // ↓↓↓ This feels to noisy, consider just drawing a rectangle instead.

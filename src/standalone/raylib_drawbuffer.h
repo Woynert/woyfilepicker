@@ -48,25 +48,33 @@ typedef struct drawbuf_Layer {
 } drawbuf_Layer;
 
 
-struct {
+typedef struct {
     drawbuf_Layer layers[256];
-} DrawBuf;
+} DrawBuff;
+DrawBuff drawbuf__swap[2] = { 0 };
+DrawBuff *drawbuf__curr = NULL;
 uint8_t DrawBuf__currlayer = 0;
 
 
 void drawbuf_init(void) {
-    for (int i = 0; i < countofi(DrawBuf.layers); ++i) {
-        drawbuf_Layer *layer = &DrawBuf.layers[i];
-        layer->arena = arenady_create();
-        layer->commands = DrawCmd_da_create();
+    for (int k = 0; k < countofi(drawbuf__swap); ++k) {
+        drawbuf__curr = &drawbuf__swap[k];
+        for (int i = 0; i < countofi(drawbuf__curr->layers); ++i) {
+            drawbuf_Layer *layer = &drawbuf__curr->layers[i];
+            layer->arena = arenady_create();
+            layer->commands = DrawCmd_da_create();
+        }
     }
 }
 
 void drawbuf_deinit(void) {
-    for (int i = 0; i < countofi(DrawBuf.layers); ++i) {
-        drawbuf_Layer *layer = &DrawBuf.layers[i];
-        arenady_free(&layer->arena);
-        DrawCmd_da_free(&layer->commands);
+    for (int k = 0; k < countofi(drawbuf__swap); ++k) {
+        drawbuf__curr = &drawbuf__swap[k];
+        for (int i = 0; i < countofi(drawbuf__curr->layers); ++i) {
+            drawbuf_Layer *layer = &drawbuf__curr->layers[i];
+            arenady_free(&layer->arena);
+            DrawCmd_da_free(&layer->commands);
+        }
     }
 }
 
@@ -75,6 +83,26 @@ void drawbuf_set_layer(uint8_t layer) {
 }
 
 uint8_t drawbuf_get_layer(void) { return DrawBuf__currlayer; }
+
+//void drawbuf_swap(void) {
+    //drawbuf__curr = drawbuf__curr == &drawbuf__swap[0] ? &drawbuf__swap[1] : &drawbuf__swap[0];
+//}
+
+bool drawbuf_do_buffers_differ(void) {
+    for (int i = 0; i < countofi(drawbuf__swap[0].layers); ++i) {
+        drawbuf_Layer *la = &drawbuf__swap[0].layers[i];
+        drawbuf_Layer *lb = &drawbuf__swap[1].layers[i];
+        if (
+           (la->commands.size != lb->commands.size)
+           || ((la->arena.end - la->arena.root) != (lb->arena.end - lb->arena.root))
+           || (la->commands.size != 0 && memcmp(la->commands.items, lb->commands.items, (size_t)la->commands.size * sizeof(la->commands.items[0])))
+           || (memcmp(la->arena.root, lb->arena.root, (size_t)(la->arena.end - la->arena.root)))
+        ) {
+            return true;
+        }
+    }
+    return false;
+}
 
 typedef struct { Rect2i r; Color color; } drawbuf_DrawRect_t;
 typedef struct { Rect2i r; Color color; int thickness; } drawbuf_DrawRectLines_t;
@@ -94,9 +122,19 @@ drawbuf_DrawTextCallback_t      drawbuf__DrawTextCallback = NULL;
 drawbuf_DrawTextureCallback_t   drawbuf__DrawTextureCallback = NULL;
 drawbuf_ScissorCallback_t       drawbuf__ScissorCallback = NULL;
 
-void drawbuf_draw_all(void) {
-    for (int i = 0; i < countofi(DrawBuf.layers); ++i) {
-        drawbuf_Layer *layer = &DrawBuf.layers[i];
+void drawbuf_draw_start(void) {
+    // Swap.
+    drawbuf__curr = drawbuf__curr == &drawbuf__swap[0] ? &drawbuf__swap[1] : &drawbuf__swap[0];
+    for (int i = 0; i < countofi(drawbuf__curr->layers); ++i) {
+        drawbuf_Layer *layer = &drawbuf__curr->layers[i];
+        arenady_reset_beginning(&layer->arena);
+        DrawCmd_da_clear_preserving(&layer->commands);
+    }
+}
+
+void drawbuf_draw_end(void) {
+    for (int i = 0; i < countofi(drawbuf__curr->layers); ++i) {
+        drawbuf_Layer *layer = &drawbuf__curr->layers[i];
         arenady_reset_beginning(&layer->arena);
         for (dyna_foreach(DrawCmd, iter, layer->commands)) {
             DrawCmd cmd = *iter.ref;
@@ -134,15 +172,11 @@ void drawbuf_draw_all(void) {
                 } break;
             }
         }
-
-        // Reset for next frame.
-        arenady_reset_beginning(&layer->arena);
-        DrawCmd_da_clear_preserving(&layer->commands);
     }
 }
 
 void b_DrawTexturePro(intptr_t texture, Rect2i source, Rect2i dest, V2i origin, float rotation, Color tint) {
-    drawbuf_Layer *layer = &DrawBuf.layers[DrawBuf__currlayer];
+    drawbuf_Layer *layer = &drawbuf__curr->layers[DrawBuf__currlayer];
     drawbuf_DrawTexture_t *args = arenady_new(&layer->arena, drawbuf_DrawTexture_t, 1);
     args->texture = texture;
     args->source = source;
@@ -154,7 +188,7 @@ void b_DrawTexturePro(intptr_t texture, Rect2i source, Rect2i dest, V2i origin, 
 }
 
 void b_DrawRect(Rect2i r, Color color) {
-    drawbuf_Layer *layer = &DrawBuf.layers[DrawBuf__currlayer];
+    drawbuf_Layer *layer = &drawbuf__curr->layers[DrawBuf__currlayer];
     drawbuf_DrawRect_t *args = arenady_new(&layer->arena, drawbuf_DrawRect_t, 1);
     args->r = r;
     args->color = color;
@@ -162,7 +196,7 @@ void b_DrawRect(Rect2i r, Color color) {
 }
 
 void b_DrawRectLines(Rect2i r, Color color, int thickness) {
-    drawbuf_Layer *layer = &DrawBuf.layers[DrawBuf__currlayer];
+    drawbuf_Layer *layer = &drawbuf__curr->layers[DrawBuf__currlayer];
     drawbuf_DrawRectLines_t *args = arenady_new(&layer->arena, drawbuf_DrawRectLines_t, 1);
     args->r = r;
     args->color = color;
@@ -172,7 +206,7 @@ void b_DrawRectLines(Rect2i r, Color color, int thickness) {
 
 void b_DrawTextEx(intptr_t font, const strview_t str, V2i pos, int font_size, int spacing, int textLineSpacing, Color tint) {
     if (str.size == 0 || str.data == NULL) { return; }
-    drawbuf_Layer *layer = &DrawBuf.layers[DrawBuf__currlayer];
+    drawbuf_Layer *layer = &drawbuf__curr->layers[DrawBuf__currlayer];
     // Allocate struct + string in one call.
     drawbuf_DrawTextEx_t *args = (drawbuf_DrawTextEx_t *)
         arenady_alloc(&layer->arena, (i64)(sizeof(drawbuf_DrawTextEx_t) + (size_t)str.size), _Alignof(drawbuf_DrawTextEx_t), 1);
@@ -188,14 +222,14 @@ void b_DrawTextEx(intptr_t font, const strview_t str, V2i pos, int font_size, in
 }
 
 void b_BeginScissorMode(Rect2i r) {
-    drawbuf_Layer *layer = &DrawBuf.layers[DrawBuf__currlayer];
+    drawbuf_Layer *layer = &drawbuf__curr->layers[DrawBuf__currlayer];
     drawbuf_ScissorMode_t *args = arenady_new(&layer->arena, drawbuf_ScissorMode_t, 1);
     args->r = r;
     DrawCmd_da_append(&layer->commands, DRAWCMD_BEGIN_SCISSOR);
 }
 
 void b_EndScissorMode(void) {
-    drawbuf_Layer *layer = &DrawBuf.layers[DrawBuf__currlayer];
+    drawbuf_Layer *layer = &drawbuf__curr->layers[DrawBuf__currlayer];
     DrawCmd_da_append(&layer->commands, DRAWCMD_END_SCISSOR);
 }
 

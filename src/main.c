@@ -20,6 +20,7 @@
 bool must_close = false;
 bool must_redraw = false;
 bool must_resize = false;
+bool force_ui_redraw = false;
 
 void glfw_mouse_callback(GLFWwindow* w, int button, int action, int mods) {
     winput_glfw_mouse_button_callback(w, button, action, mods);
@@ -107,6 +108,7 @@ int main(void) {
     glfwPollEvents();
     while (!glfwWindowShouldClose(window) && !must_close)
     {
+        force_ui_redraw = false;
         FRAME_START_TIME_NS = get_system_ns();
 
         ++ticks;
@@ -119,7 +121,8 @@ int main(void) {
         printf("FPS %d\n", fps_calculation);
 
         if (must_resize) {
-            must_resize ^= 1;
+            must_resize = false;
+            force_ui_redraw = true;
             ctx->window_size = (V2i) {{ int_max(2, ctx->window_size.x), int_max(2, ctx->window_size.y) }};
             int err = x11_ensure_size(ctx->window_size);
             if (err == 0) {
@@ -136,28 +139,10 @@ int main(void) {
             must_redraw ^= 1;
 
             {
-                long time_start = get_system_ms();
-                memset(x11_get_buffer(), 0, (size_t)(ctx->window_size.x * ctx->window_size.y * 4));
-
-                /*int size_pixels = silk_ctx_curr->viewport_size.x * silk_ctx_curr->viewport_size.y;*/
-                /*for (int i = 0; i < size_pixels; ++i) {*/
-                    /*silk_ctx_curr->pixels[i] = YELLOW.rgba;*/
-                /*}*/
-
-                /*olivec_fill(olivewrap_canvas, 0xFF181818);*/
-                draw_rect((Rect2i) {.size=ctx->window_size}, BLACK);
-                draw_all(ctx);
-                /*draw_rect((Rect2i) {{ 200 + (int)(((float)(ticks % 100)/100.0f) * 200.0f), 200, 50, 60}}, BLUE);*/
-                /*draw_image(ctx->icon1, v2i(100,200));*/
-                /*draw_image_ext(ctx->icon1, (Rect2i){.size=ctx->icon1.size}, (Rect2i){{100,200,50,50}});*/
-
-                draw_text(ctx->font1, cstr_SL("The quick brown fox jumps over the lazy dog éjpyóç"), v2i(0,300), MAGENTA);
+                draw_all(ctx, force_ui_redraw);
             }
 
 
-            rgba_to_bgra((u32*)x11_get_buffer(), (Rect2i){.size=ctx->window_size}, ctx->window_size.x);
-            char *buffer = x11_swap_buffer();
-            wod_set_buffer((u32*)buffer, ctx->window_size, ctx->window_size.x);
             x11_draw_texture();
         }
 
