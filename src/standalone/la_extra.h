@@ -79,6 +79,17 @@ bool Rect2i_collides_V2i (Rect2i rect, V2i point) {
     );
 }
 
+V2i Rect_fit_in_Rect_and_preserve_aspect_ratio(V2i container, V2i rect) {
+    float scale_x = (float)container.x / (float)rect.x;
+    float scale_y = (float)container.y / (float)rect.y;
+    float scale_factor = fminf(scale_x, scale_y);
+    return (V2i) {{
+        .x = (int)((float)rect.x * scale_factor),
+        .y = (int)((float)rect.y * scale_factor),
+    }};
+}
+
+
 
 #define Rect2i_Fmt "Rect2i(%d, %d, %d, %d)"
 #define Rect2i_Arg(r) r.x, r.y, r.width, r.height

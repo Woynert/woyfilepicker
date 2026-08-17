@@ -1,18 +1,14 @@
 #ifndef UI_H
 #define UI_H
 
-//#include "operations.h"
-#include "raylib_drawbuffer.h"
-//#include "raylib_extra.h"
-//#include "raylib_extra2.h"
+#include "drawbuffer.h"
 #include "la_extra.h"
-//#include "raylib.h"
 #include "la.h"
-//#include "rlgl.h"
 #include "portable_utils.h"
 #include "uitree.h"
 #include "state.h"
 #include "ui_common.h"
+#include "wod_drawer.h"
 #include "x11back.h"
 
 
@@ -56,21 +52,21 @@ void (*widget_func[]) (Ctx *ctx, uitree_DrawInfo info) = {
 };
 
 void ui_widget_test (Ctx *ctx, uitree_DrawInfo info) {
-    //b_DrawRect(info.area, GRAY);
     info.area.height /= 2;
-    //b_DrawRect(info.area, MAGENTA);
     info.area.height /= 10;
-    b_DrawRect(info.area, GREEN);
+    b_draw_rect(info.area, GREEN);
 
     Rect2i btn = {{ 20, 20, 100, 50 }};
     V2i mouse = winput_mouse_pos();
 
     if (Rect2i_collides_V2i(btn, mouse)) {
-        b_DrawRect(btn, BLUE);
+        b_draw_rect(btn, BLUE);
     } else {
-        b_DrawRect(btn, GRAY);
+        b_draw_rect(btn, GRAY);
     }
-    //b_DrawRectLines(btn, MAGENTA, 1);
+    b_draw_frame(btn, MAGENTA, 1);
+
+    b_draw_frame((Rect2i){{mouse.x, mouse.y, 50, 50}}, BLUE, 1);
 }
 
 void draw_all(Ctx *ctx, const bool force_redraw) {
@@ -81,7 +77,9 @@ void draw_all(Ctx *ctx, const bool force_redraw) {
     if (!setup) { setup = true; uitree_create(t); }
 
     uitree_build_start(t, (Rect2i){ .size=ctx->window_size });
-    drawbuf_draw_start();
+    dbuf_draw_start();
+    //b_draw_rect((Rect2i) {.size=ctx->window_size}, BLACK); // Background.
+
 
     uitree_Node widget;
     uitree_Node con_tree = uitree_container_dumb(widget_stack);
@@ -90,23 +88,25 @@ void draw_all(Ctx *ctx, const bool force_redraw) {
     t->root_node = con_tree;
     uitree_build_end(t);
 
+
     int i = -1;
     uitree_List_DrawInfo_It it = { 0 };
     while(uitree_List_DrawInfo_it_next(&t->out_draw_list, &it)) {
         ++i;
         int depth = t->out_draw_list.size - i;
         uitree_DrawInfo draw = *it.item;
-        drawbuf_set_layer((uint8_t)depth);
+        dbuf_set_layer((uint8_t)depth);
         widget_func[draw.user_draw_func_id](ctx, draw);
     }
 
-    if (force_redraw || drawbuf_do_buffers_differ()) {
-        draw_rect((Rect2i) {.size=ctx->window_size}, BLACK);
-        printfd(ANSI_MAG"Must redraw. "Bool_Fmt"!!!!!!1", Bool_Arg(drawbuf_do_buffers_differ()));
-        drawbuf_draw_end();
+    b_draw_text(ctx->font1, cstr_SL("The quick brown fox jumps over the lazy dog éjpyóç"), v2i(0,300), ctx->font1.font_size, MAGENTA);
+
+    if (force_redraw || dbuf_do_buffers_differ()) {
+        //draw_rect((Rect2i) {.size=ctx->window_size}, BLACK);
+        printfd(ANSI_MAG"Must redraw. "Bool_Fmt"!!!!!!1", Bool_Arg(dbuf_do_buffers_differ()));
+        dbuf_draw_end();
         //drawbuf_swap();
         // TODO NONE OF THIS SHOULD BE HERE.
-        draw_text(ctx->font1, cstr_SL("The quick brown fox jumps over the lazy dog éjpyóç"), v2i(0,300), MAGENTA);
         rgba_to_bgra((u32*)x11_get_buffer(), (Rect2i){.size=ctx->window_size}, ctx->window_size.x);
         char *buffer = x11_swap_buffer();
         wod_set_buffer((u32*)buffer, ctx->window_size, ctx->window_size.x);

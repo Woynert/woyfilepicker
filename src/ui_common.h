@@ -1,7 +1,7 @@
 #ifndef UI_COMMON_H
 #define UI_COMMON_H
 
-#include "raylib_drawbuffer.h"
+#include "drawbuffer.h"
 #include "state.h"
 #include "uitree.h"
 #include "ui_mouse_input.h"
@@ -105,7 +105,7 @@ void ui_widget_vsplit_drag(Ctx *ctx, uitree_DrawInfo info) {
     widget_vsplit_state_t vars = widget_vsplit_get_state(info.state);
 
     if (mice_in_rect(*vars.drag_area) || *vars.is_dragging) {
-        b_DrawRect(*vars.drag_area, ORANGE);
+        b_draw_rect(*vars.drag_area, ORANGE);
         if (mice_pressed(MouseLeft)) {
             mice_consume(MouseLeft);
             *vars.is_dragging = true;
@@ -223,14 +223,14 @@ void ui_widget_3hsplit_drag(Ctx *ctx, uitree_DrawInfo info) {
     if (*vars.percentage2 == 0) { *vars.percentage2 = 50; }
 
     if (mice_in_rect(*vars.drag_area1) || (*vars.is_dragging == IS_DRAGGING_1ND)) {
-        b_DrawRect(*vars.drag_area1, BLUE);
+        b_draw_rect(*vars.drag_area1, BLUE);
         if (mice_pressed_consume(MouseLeft)) {
             *vars.is_dragging = IS_DRAGGING_1ND;
         }
     }
 
     else if (mice_in_rect(*vars.drag_area2) || (*vars.is_dragging == IS_DRAGGING_2ND)) {
-        b_DrawRect(*vars.drag_area2, RED);
+        b_draw_rect(*vars.drag_area2, RED);
         if (mice_pressed_consume(MouseLeft)) {
             *vars.is_dragging = IS_DRAGGING_2ND;
         }

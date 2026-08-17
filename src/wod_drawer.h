@@ -264,17 +264,26 @@ void free_font(wod_font_t font) {
 
 typedef void (*wod_set_buffer_t)   (u32 *pixels, V2i size, int stride);
 typedef void (*wod_draw_rect_t)    (Rect2i rect, Color color);
-typedef void (*wod_draw_texture_t) (Image img, Rect2i source, Rect2i dest);
+typedef void (*wod_draw_frame_t)   (Rect2i rect, Color color, int thickness);
+typedef void (*wod_draw_texture_t) (Image img, Rect2i source, Rect2i dest, V2i origin, float rotation, Color tint);
 typedef void (*wod_draw_texture_bitmap_t) (Image img, Rect2i source, Rect2i dest, Color tint);
-//typedef void (*wod_DrawRectLinesCallback_t) (Rect2i rect, Color color, int thickness);
-//typedef void (*wod_DrawTextCallback_t) (strview_t str, intptr_t font, V2i position, int font_size, int spacing, int textLineSpacing, Color tint);
-//typedef void (*wod_ScissorCallback_t) (bool start_end, Rect2i rect);
+typedef void (*wod_draw_text_t) (
+        strview_t str,
+        wod_font_t font,
+        V2i position,
+        int font_size,
+        int spacing,
+        int textLineSpacing,
+        Color tint);
+typedef void (*wod_scissor_t) (bool start_end, Rect2i rect);
 
 typedef struct {
-    wod_set_buffer_t   set_buffer;
-    wod_draw_rect_t    draw_rect;
-    wod_draw_texture_t draw_texture;
+    wod_set_buffer_t          set_buffer;
+    wod_draw_rect_t           draw_rect;
+    wod_draw_frame_t          draw_frame;
+    wod_draw_texture_t        draw_texture;
     wod_draw_texture_bitmap_t draw_texture_bitmap;
+    wod_scissor_t             scissor;
 } Drawer;
 
 Drawer wod__drawer;
@@ -282,7 +291,9 @@ Drawer wod__drawer;
 void wod_set_drawer(Drawer drawer) {
     wassert(drawer.set_buffer);
     wassert(drawer.draw_rect);
+    wassert(drawer.draw_frame);
     wassert(drawer.draw_texture);
+    wassert(drawer.draw_texture_bitmap);
     wod__drawer = drawer;
 }
 
@@ -295,16 +306,23 @@ void draw_rect(Rect2i rect, Color color) {
     wod__drawer.draw_rect(rect, color);
 }
 
-void draw_image_ext(Image img, Rect2i source, Rect2i dest) {
-    wod__drawer.draw_texture(img, source, dest);
+void draw_frame(Rect2i rect, Color color, int thickness) {
+    wod__drawer.draw_frame(rect, color, thickness);
+}
+
+void draw_image_ext(Image img, Rect2i source, Rect2i dest, V2i origin, float rotation, Color tint) {
+    wod__drawer.draw_texture(img, source, dest, origin, rotation, tint);
 }
 
 void draw_image(Image img, V2i pos) {
-    wod__drawer.draw_texture(img, (Rect2i){.size=img.size}, (Rect2i){.pos=pos,.size=img.size});
+    wod__drawer.draw_texture(img, (Rect2i){.size=img.size}, (Rect2i){.pos=pos,.size=img.size}, v2i(0,0), 0, WHITE);
 }
 
+void draw_scissor(bool start_end, Rect2i rect) {
+    wod__drawer.scissor(start_end, rect);
+}
 
-void draw_text(wod_font_t font, const strview_t text, V2i pos, Color color) {
+void draw_text(const strview_t text, wod_font_t font, V2i pos, int font_size, int spacing, int textLineSpacing, Color color) {
     int xoffset = 0;
     int baseline = pos.y + font.font_size;
 
@@ -324,7 +342,7 @@ void draw_text(wod_font_t font, const strview_t text, V2i pos, Color color) {
         //printfd("Codepoint %lc", codepoint);
 
         const stbtt_packedchar *cp_info = font_get_codepoint_info(font, codepoint);
-        if (!cp_info) { // ↓↓↓ This feels to noisy, consider just drawing a rectangle instead.
+        if (!cp_info) { // ↓↓↓ This feels too noisy, consider just drawing a rectangle instead.
             if (cp_info_fallback) {
                 cp_info = cp_info_fallback;
             } else if (try_get_callback) {
@@ -345,7 +363,7 @@ void draw_text(wod_font_t font, const strview_t text, V2i pos, Color color) {
             color
         );
 
-        xoffset += (int)cp_info->xoff2;
+        xoffset += (int)cp_info->xoff2 + spacing;
     }
 }
 

@@ -1,14 +1,16 @@
+#include "wod_drawer.h"
+#include "state_init.h"
+#define DBUF_IMG_T  Image
+#define DBUF_FONT_T wod_font_t
+#include "drawbuffer.h"
 #include "kinput.h"
 #include "olivec_wrap.h"
 #include "portable_utils.h"
 #include <X11/Xlib.h>
-#include "state_init.h"
 #include "x11back.h"
 #include "la_extra.h"
 #include "silk.h"
 #include "ui.h"
-#include "silk_wrap.h"
-#include "wod_drawer.h"
 
 #define GLFW_EXPOSE_NATIVE_X11
 #include <GLFW/glfw3.h>
@@ -65,6 +67,9 @@ void test1(void) {
     free_file(file);
 }
 
+void setup(void) {
+}
+
 int main(void) {
     GLFWwindow* window;
     V2i initial_win_size = {{ 640, 480 }};
@@ -85,17 +90,17 @@ int main(void) {
     ctx_init(ctx);
     ctx_load_assets(ctx);
     ctx->window_size = initial_win_size;
-
-    // INIT WOOD DRAWER
     wod_set_drawer(olivewrap_make_drawer());
-
-    /*silk_ctx_curr = &ctx->silk_ctx;*/
-    /*silk_ctx_init(silk_ctx_curr);*/
-    must_resize = true; // <-- Trigger buffers to resize.
-
     x11back_init(window);
-    drawbuf_init();
-    drawbuf__DrawRectCallback = &draw_rect;
+    dbuf_init();
+    dbuf_setup_callbacks(
+        &draw_rect,
+        &draw_frame,
+        &draw_text,
+        &draw_image_ext,
+        &draw_scissor
+    );
+    must_resize = true; // <-- Trigger buffers to resize.
 
 
     long prev_draw_timestamp = get_system_ms();
@@ -160,7 +165,7 @@ int main(void) {
     }
 
     ctx_free(ctx);
-    drawbuf_deinit();
+    dbuf_deinit();
     glfwTerminate();
     printfd("End");
     return 0;
