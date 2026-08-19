@@ -197,6 +197,10 @@ strview_t wstrview_get_next_line(strview_t *str_ptr) {
 
 bool strview_is_empty(strview_t str) { return str.size <= 0; }
 
+strview_t strview_trim_whitespace(strview_t str) {
+    return strview_trim(str, " \n\t");
+}
+
 /*
 void strbuf_pop_at_index_TEST(void) {
     strbuf_t *line = strbuf_create_init(cstr(""), NULL);

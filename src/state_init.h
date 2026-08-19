@@ -63,20 +63,35 @@ void free_file(File *file) {
     strpool_remove(file->strpool, file->bookmark_alias);
 }
 
-File make_file(Ctx *ctx, strview_t path, Strpool *strpool) {
-    File file = { 0 };
-    StrpoolId path_str_id = strpool_append(strpool, path);
-    if (path_str_id == -1) { goto exit; }
-    file.strpool = strpool;
+void File_set_alias(File *file, strview_t alias) {
+    strview_t prev_alias = strpool_get(file->strpool, file->bookmark_alias);
+    if (strview_is_valid(prev_alias)) {
+        wassert(0 == strpool_remove(file->strpool, file->bookmark_alias));
+        file->bookmark_alias = 0;
+    }
+    alias = strview_trim_whitespace(alias);
+    if (!strview_is_empty(alias)) {
+        file->bookmark_alias = strpool_append(file->strpool, alias);
+    }
+}
+
+/// @Returns error.
+int make_file(Ctx *ctx, File *out_file, strview_t path, Strpool *strpool) {
+    while (path.size > 0 && path.data[path.size] == '/') { --path.size; }
+    File file = { .strpool = strpool };
     strbuf_t *path_buf = strbuf_create_with_arena(path, &ctx->framearena);
-    struct stat path_stat;
-    if (stat(path_buf->cstr, &path_stat) != 0) { goto exit; }
-    file.is_dir = path_stat.st_mode & __S_IFDIR;
-    struct tm *mod_date = localtime(&path_stat.st_mtime);
-    file.mod_date = *mod_date;
-    file.valid = true;
-    file.path = path_str_id;
-    exit: return file;
+    {
+        struct stat path_stat;
+        if (stat(path_buf->cstr, &path_stat) != 0) { return -1; }
+        struct tm *mod_date = localtime(&path_stat.st_mtime);
+        file.mod_date = *mod_date;
+        file.is_dir = path_stat.st_mode & __S_IFDIR;
+    }
+    file.path = strpool_append(strpool, path);
+    strview_t alias = strview_split_last_delim(&path, "/", false);
+    File_set_alias(&file, alias);
+    *out_file = file;
+    return 0;
 }
 
 strview_t File_get_path(File *file) {
