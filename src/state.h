@@ -50,7 +50,7 @@ typedef struct Ctx {
     strbuf_t *home;
     strbuf_t *config;
     File default_location;
-    int curr_location_idx;
+    int curr_location_cursor;
 } Ctx;
 
 #endif

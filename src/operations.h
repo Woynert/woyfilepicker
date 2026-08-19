@@ -90,14 +90,32 @@ void update_bookmarks(Ctx *ctx) {
 }
 
 File ctx_get_curr_dir(Ctx *ctx) {
-    File *file = VecFile_get_safe(&ctx->history_stack, ctx->history_stack.size -1 -ctx->curr_location_idx);
+    File *file = VecFile_get_safe(&ctx->history_stack, ctx->history_stack.size -1 -ctx->curr_location_cursor);
     return file ? *file : ctx->default_location;
 }
 
+int ctx_get_history_stack_idx(Ctx *ctx, int offset) {
+    return ctx->history_stack.size -1 -offset;
+}
+
+void debug_print_history_stack(Ctx *ctx) {
+    printfd("[ ↓ HISTORY STACK]");
+    for (dyna_foreach(File, iter, ctx->history_stack)) {
+        printfd(ANSI_RED PRIstrw "%s", PRIstrarg(File_get_path(*iter.ref)),
+            iter.index == ctx_get_history_stack_idx(ctx, ctx->curr_location_cursor) ? " <--" : ""
+        );
+    }
+    printfd("[ ↑ HISTORY STACK]");
+}
+
 void debug_print_listing(Ctx *ctx) {
+    strview_t dir_path = File_get_path_copy(ctx_get_curr_dir(ctx), &ctx->framearena);
+    printfd("YOU ARE IN ["PRIstrw"]", PRIstrarg(dir_path));
     for (dyna_foreach(File, iter, ctx->folder_list)) {
         printfd(ANSI_RED PRIstrw, PRIstrarg(File_get_path(*iter.ref)));
     }
+    printfd("YOU ARE IN ["PRIstrw"]", PRIstrarg(dir_path));
+    debug_print_history_stack(ctx);
 }
 
 void refresh_listing(Ctx *ctx) {
@@ -129,40 +147,66 @@ void refresh_listing(Ctx *ctx) {
     ctx->framearena = arena_bk;
 }
 
+void invert_array_items_in_range_inclusive(File *items, int from, int to) {
+    for (int i = from, k = to; i < from + (to+1-from)/2; ++i, --k) {
+        File bk = items[i];
+        items[i] = items[k];
+        items[k] = bk;
+    }
+}
+
 void add_location(Ctx *ctx, const strview_t arg_file_path) {
     int err;
     strview_t file_path = SC(&ctx->framearena, arg_file_path);
     File new_dir; err = make_file(ctx->framearena, &new_dir, file_path, &ctx->strpool_general);
     if (err != 0) { printferr("Invalid location ["PRIstrw"]", PRIstrarg(file_path)); return; }
+    if (ctx->curr_location_cursor != 0) { do {
+        int curr_idx = ctx_get_history_stack_idx(ctx, ctx->curr_location_cursor);
+        invert_array_items_in_range_inclusive(ctx->history_stack.items, curr_idx+1, ctx->history_stack.size-1);
+        File current;
+        err = VecFile_pop_at_preserve_order(&ctx->history_stack, curr_idx, &current);
+        if (err != 0) { break; }
+        VecFile_append(&ctx->history_stack, current);
+    } while(0); }
     VecFile_append(&ctx->history_stack, new_dir);
+    ctx->curr_location_cursor = 0;
+
+    // Remove contiguous duplicates.
+    
+    strview_t path = STRVIEW_INVALID;
+    for (dyna_foreach_reverse(File, iter, ctx->history_stack)) {
+        file_path = File_get_path_copy(*iter.ref, &ctx->framearena);
+        if (strview_equal(path, file_path)) {
+            File out;
+            err = VecFile_pop_at_preserve_order(&ctx->history_stack, iter.index, &out);
+            if (err == 0) { free_file(&out); }
+        } else {
+            path = file_path;
+        }
+    }
 }
 
 void add_location2(Ctx *ctx, const File file) {
-    int err;
-    strview_t file_path = SC(&ctx->framearena, File_get_path(file));
-    File new_dir; err = make_file(ctx->framearena, &new_dir, file_path, &ctx->strpool_general);
-    if (err != 0) { printferr("Invalid location ["PRIstrw"]", PRIstrarg(file_path)); return; }
-    VecFile_append(&ctx->history_stack, new_dir);
+    add_location(ctx, File_get_path(file));
 }
 
 void navigate_forward(Ctx *ctx) {
-    --ctx->curr_location_idx;
-    ctx->curr_location_idx = int_clamp(0, ctx->history_stack.size-1, ctx->curr_location_idx);
+    --ctx->curr_location_cursor;
+    ctx->curr_location_cursor = int_clamp(0, ctx->history_stack.size-1, ctx->curr_location_cursor);
     refresh_listing(ctx);
     debug_print_listing(ctx);
 }
 
 void navigate_backwards(Ctx *ctx) {
-    ++ctx->curr_location_idx;
-    ctx->curr_location_idx = int_clamp(0, ctx->history_stack.size-1, ctx->curr_location_idx);
+    ++ctx->curr_location_cursor;
+    ctx->curr_location_cursor = int_clamp(0, ctx->history_stack.size-1, ctx->curr_location_cursor);
     refresh_listing(ctx);
     debug_print_listing(ctx);
 }
 
 void navigate_parent_dir(Ctx *ctx) {
     // Try get parent.
-    File curr_dir = ctx_get_curr_dir(ctx);
-    strview_t dir_path = File_get_path_copy(curr_dir, &ctx->framearena);
+    strview_t dir_path = File_get_path_copy(ctx_get_curr_dir(ctx), &ctx->framearena);
     if (dir_path.size <= 1) { return; }
     dir_path = strview_trim_dir_separator(dir_path);
     printfd("We are in "PRIstrw, PRIstrarg(dir_path));

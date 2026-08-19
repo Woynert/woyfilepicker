@@ -79,6 +79,7 @@ void ctx_free(Ctx *ctx) {
 void free_file(File *file) {
     strpool_remove(file->strpool, file->path);
     strpool_remove(file->strpool, file->bookmark_alias);
+    *file = (File) { 0 };
 }
 
 void File_set_alias(File *file, strview_t alias) {
@@ -152,8 +153,7 @@ int make_file2(Ctx *ctx, File *out_file, strview_t path, Strpool *strpool, bool 
 */
 
 strview_t File_get_path_copy(const File file, Arena *perm) {
-    strview_t path = strpool_get(file.strpool, file.path);
-    return SC(perm, path);
+    return SC(perm, strpool_get(file.strpool, file.path));
 }
 
 strview_t File_get_path(const File file) {
