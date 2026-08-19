@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 
 // @Note. Beware of this behaviour:
-//        /my/dir/ == False. Not a directory.
+//        /my/dir/ == False. Not a directory. <-- I don't think this is true.
 //        /my/dir  == True. It's a directory.
 bool is_path_dir_cstr(const char *path) {
     struct stat path_stat;
@@ -19,7 +19,7 @@ bool is_path_dir_cstr(const char *path) {
 
 bool is_path_dir(strview_t path, Arena scratch) {
     if (!strview_is_valid(path)) { return false; }
-    while (path.size > 0 && path.data[path.size] == '/') { --path.size; }
+    //while (path.size > 1 && path.data[path.size] == '/') { --path.size; }
     strbuf_t *path_buf = strbuf_create_with_arena(path, &scratch);
     return is_path_dir_cstr(path_buf->cstr);
 }

@@ -10,7 +10,7 @@
 
 
 
-void get_env_vars(Ctx *ctx) {
+void ctx_get_env_vars(Ctx *ctx) {
     const char* home = getenv("HOME");
     strview_t home_view = home ? cstr(home) : cstr_SL("/");
     strbuf_assign(&ctx->home, home_view);
@@ -18,29 +18,32 @@ void get_env_vars(Ctx *ctx) {
     if (config) {
         strbuf_assign(&ctx->config, cstr(config));
     } else {
-        strbuf_cat(&ctx->config, strbuf_view2(ctx->home), cstr_SL("/.config"));
+        strbuf_cat(&ctx->config, strview(ctx->home), cstr_SL("/.config"));
     }
     // Make sure these don't end in '/'.
-    if (ctx->home->cstr[ctx->home->size] == '/') { ctx->home->cstr[ctx->home->size]=0; }
-    if (ctx->config->cstr[ctx->config->size] == '/') { ctx->config->cstr[ctx->config->size]=0; }
+    //while (ctx->home->size > 0 && ctx->home->cstr[ctx->home->size] == '/') { --ctx->home->size; }
+    //while (ctx->config->size > 0 && ctx->config->cstr[ctx->config->size] == '/') { --ctx->config->size; }
+    //strbuf_assign
+    //ctx->home = strview_trim_dir_separator(ctx->home);
+    //ctx->config = strview_trim_dir_separator(ctx->config);
 }
 
 void parse_gtk3_bookmarks(Ctx *ctx) {
     // ~/.config/gtk-3.0/bookmarks
     int err;
-    strbuf_t* bookmarks_path = strbuf_create_with_arena(0, &ctx->framearena);
-    strbuf_cat(&bookmarks_path, strbuf_view2(ctx->config), cstr_SL("/gtk-3.0/bookmarks"));
-    wod_file_t file = wod_load_file_str(strbuf_view2(bookmarks_path), ctx->framearena);
+    strview_t bookmarks_path = SC(&ctx->framearena, strview(ctx->config), cstr_SL("/gtk-3.0/bookmarks"));
+    wod_file_t file = wod_load_file_str(bookmarks_path, ctx->framearena);
     if (wod_error()) { return; }
     strview_t data = file.view;
     while (data.size) {
         strview_t line = wstrview_get_next_line(&data);
         if (!strview_starts_with(line, cstr_SL("file:///"))) { continue; }
         strview_split_index(&line, cstr_SL("file://").size);
+        strview_t linebk = line;
         strview_t bookmark_path = strview_split_first_delim(&line, " ", false);
         File bookmark; err = make_file(ctx, &bookmark, bookmark_path, &ctx->strpool_bookmarks);
         if (err != 0) { continue; }
-        bool has_separator = strview_is_valid(strview_find_first(line, " "));
+        bool has_separator = strview_is_valid(strview_find_first(linebk, " "));
         if (has_separator) {
             strview_t alias = strview_trim_whitespace(line);
             if (!strview_is_empty(alias)) {
@@ -63,8 +66,8 @@ void parse_user_dirs_dirs(Ctx *ctx) {
     // XDG_PICTURES_DIR="$HOME/Pictures"
     // XDG_VIDEOS_DIR="$HOME/Videos"
     strbuf_t* dirs_path = strbuf_create_with_arena(0, &ctx->framearena);
-    strbuf_cat(&dirs_path, strbuf_view2(ctx->config), cstr_SL("/user-dirs.dirs"));
-    wod_file_t file = wod_load_file_str(strbuf_view2(dirs_path), ctx->framearena);
+    strbuf_cat(&dirs_path, strview(ctx->config), cstr_SL("/user-dirs.dirs"));
+    wod_file_t file = wod_load_file_str(strview(dirs_path), ctx->framearena);
     if (wod_error()) { return; }
     strview_t data = file.view;
     while (data.size) {

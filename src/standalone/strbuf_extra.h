@@ -5,10 +5,9 @@
 #include "strbuf.h"
 
 #define PRIstrargbuf(b) ((b) ? (b)->size : 0),((b) ? (b)->cstr : "")
-#define strview(b) strbuf_view2(b)
 
 static inline int _strbuf_int_min(int a, int b) { return a < b ? a : b; }
-static strview_t strbuf_view2(strbuf_t* buf) // TODO: Delete this or justify it.
+static strview_t strview(strbuf_t* buf) // TODO: Delete this or justify it.
 {
     strview_t str = STRVIEW_INVALID;
     if(buf)
@@ -55,7 +54,7 @@ strview_t strbuf_pop_at_index(strbuf_t** buf_ptr, int index, int count) {
             buf->size -= count;
         }
     }
-    return buf_ptr ? strbuf_view2(*buf_ptr) : STRVIEW_INVALID;
+    return buf_ptr ? strview(*buf_ptr) : STRVIEW_INVALID;
 }
 
 // Defaults to '�'.
@@ -199,6 +198,10 @@ bool strview_is_empty(strview_t str) { return str.size <= 0; }
 
 strview_t strview_trim_whitespace(strview_t str) {
     return strview_trim(str, " \n\t");
+}
+
+strview_t strview_trim_dir_separator(strview_t str) {
+    return strview_trim_end(str, "/");
 }
 
 /*

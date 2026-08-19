@@ -72,12 +72,13 @@ void File_set_alias(File *file, strview_t alias) {
     alias = strview_trim_whitespace(alias);
     if (!strview_is_empty(alias)) {
         file->bookmark_alias = strpool_append(file->strpool, alias);
+    } else {
+        file->bookmark_alias = file->path;
     }
 }
 
 /// @Returns error.
 int make_file(Ctx *ctx, File *out_file, strview_t path, Strpool *strpool) {
-    while (path.size > 0 && path.data[path.size] == '/') { --path.size; }
     File file = { .strpool = strpool };
     strbuf_t *path_buf = strbuf_create_with_arena(path, &ctx->framearena);
     {
@@ -88,6 +89,7 @@ int make_file(Ctx *ctx, File *out_file, strview_t path, Strpool *strpool) {
         file.is_dir = path_stat.st_mode & __S_IFDIR;
     }
     file.path = strpool_append(strpool, path);
+    path = strview_trim_dir_separator(path);
     strview_t alias = strview_split_last_delim(&path, "/", false);
     File_set_alias(&file, alias);
     *out_file = file;

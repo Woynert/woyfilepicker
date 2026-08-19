@@ -10,8 +10,8 @@
 #include <X11/Xlib.h>
 #include "x11back.h"
 #include "la_extra.h"
-#include "silk.h"
 #include "ui.h"
+#include "file_utils.h"
 
 #define GLFW_EXPOSE_NATIVE_X11
 #include <GLFW/glfw3.h>
@@ -84,7 +84,7 @@ int main(void) {
     hook_glfw_callbacks(window, ctx);
     ctx_init(ctx);
     ctx_load_assets(ctx);
-    get_env_vars(ctx);
+    ctx_get_env_vars(ctx);
     update_bookmarks(ctx);
     ctx->window_size = initial_win_size;
     wod_set_drawer(olivewrap_make_drawer());
@@ -99,6 +99,7 @@ int main(void) {
     );
     must_resize = true; // <-- Trigger buffers to resize.
 
+    wassert(is_path_dir(cstr("/tmp/"), ctx->framearena));
 
     long prev_draw_timestamp = get_system_ms();
     int ticks = 0;
