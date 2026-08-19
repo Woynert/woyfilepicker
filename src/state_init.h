@@ -4,6 +4,7 @@
 #include "state.h"
 #include "stbtt_extra.h"
 #include "wod_drawer.h"
+#include <sys/stat.h>
 
 void ctx_init(Ctx *ctx) {
     *ctx = (Ctx){0};
@@ -52,6 +53,40 @@ void ctx_free(Ctx *ctx) {
     strpool_destroy(&ctx->strpool_explorer);
     strbuf_destroy(&ctx->home);
     strbuf_destroy(&ctx->config);
+    VecFile_free(&ctx->bookmarks);
+    VecFile_free(&ctx->history_stack);
+    VecFile_free(&ctx->folder_list);
+}
+
+void free_file(File *file) {
+    strpool_remove(file->strpool, file->path);
+    strpool_remove(file->strpool, file->bookmark_alias);
+}
+
+File make_file(Ctx *ctx, strview_t path, Strpool *strpool) {
+    File file = { 0 };
+    StrpoolId path_str_id = strpool_append(strpool, path);
+    if (path_str_id == -1) { goto exit; }
+    file.strpool = strpool;
+    strbuf_t *path_buf = strbuf_create_with_arena(path, &ctx->framearena);
+    struct stat path_stat;
+    if (stat(path_buf->cstr, &path_stat) != 0) { goto exit; }
+    file.is_dir = path_stat.st_mode & __S_IFDIR;
+    struct tm *mod_date = localtime(&path_stat.st_mtime);
+    file.mod_date = *mod_date;
+    file.valid = true;
+    file.path = path_str_id;
+    exit: return file;
+}
+
+strview_t File_get_path(File *file) {
+    return strpool_get(file->strpool, file->path);
+}
+
+strview_t File_get_bookmark_alias(File *file) {
+    strview_t alias = strpool_get(file->strpool, file->bookmark_alias);
+    if (!strview_is_empty(alias)) return alias;
+    return strpool_get(file->strpool, file->path);
 }
 
 #endif // !STATE_INIT_H

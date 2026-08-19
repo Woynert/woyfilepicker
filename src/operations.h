@@ -2,6 +2,7 @@
 #define OPERATIONS_H
 
 #include "state.h"
+#include "state_init.h"
 #include "stdio.h"
 #include "stdlib.h"
 #include <sys/stat.h>
@@ -50,27 +51,6 @@ void get_env_vars(Ctx *ctx) {
     if (ctx->config->cstr[ctx->config->size] == '/') { ctx->config->cstr[ctx->config->size]=0; }
 }
 
-void free_file(File *file) {
-    strpool_remove(file->strpool, file->path);
-    strpool_remove(file->strpool, file->bookmark_display_name);
-}
-
-File make_file(Ctx *ctx, strview_t path, Strpool *strpool) {
-    File file = { 0 };
-    StrpoolId path_str_id = strpool_append(strpool, path);
-    if (path_str_id == -1) { goto exit; }
-    file.strpool = strpool;
-    strbuf_t *path_buf = strbuf_create_with_arena(path, &ctx->framearena);
-    struct stat path_stat;
-    if (stat(path_buf->cstr, &path_stat) != 0) { goto exit; }
-    file.is_dir = path_stat.st_mode & __S_IFDIR;
-    struct tm *mod_date = localtime(&path_stat.st_mtime);
-    file.mod_date = *mod_date;
-    file.valid = true;
-    file.path = path_str_id;
-    exit: return file;
-}
-
 void parse_gtk3_bookmarks(Ctx *ctx) {
     // ~/.config/gtk-3.0/bookmarks
     strbuf_t* bookmarks_path = strbuf_create_with_arena(0, &ctx->framearena);
@@ -82,9 +62,14 @@ void parse_gtk3_bookmarks(Ctx *ctx) {
         strview_t line = wstrview_get_next_line(&data);
         if (!strview_starts_with(line, cstr_SL("file:///"))) { continue; }
         strview_split_index(&line, cstr_SL("file://").size);
-        File bookmark = make_file(ctx, line, &ctx->strpool_bookmarks);
+        strview_t bookmark_path = strview_split_first_delim(&line, " ", false);
+        strview_t alias = line;
+        File bookmark = make_file(ctx, bookmark_path, &ctx->strpool_bookmarks);
+        bookmark.bookmark_alias = strpool_append(bookmark.strpool, alias);
+        printfd("D: Trying to add ["PRIstrw"]", PRIstrarg(line));
         if (!bookmark.valid) { continue; }
         printfd("D: Successful read of "PRIstrw, PRIstrarg(strpool_get(bookmark.strpool, bookmark.path)));
+        VecFile_append(&ctx->bookmarks, bookmark);
     }
     wod_free_file(file);
 }
@@ -106,8 +91,8 @@ void parse_user_dirs_dirs(Ctx *ctx) {
     strview_t data = file.view;
     while (data.size) {
         strview_t line = wstrview_get_next_line(&data);
-        printfd(PRIstrw, PRIstrarg(line));
         if (!strview_starts_with(line, cstr_SL("#"))) { continue; }
+        //printfd(PRIstrw, PRIstrarg(line));
         // @Note: Not interested in implementing this yet.
     }
     wod_free_file(file);
@@ -121,8 +106,8 @@ void update_bookmarks(Ctx *ctx) {
     for (dyna_foreach(File, iter, ctx->bookmarks)) {
         File *file = iter.ref;
         printfd("Bookmark "PRIstrw" Alias "PRIstrw,
-                PRIstrarg(strpool_get(file->strpool, file->path)),
-                PRIstrarg(strpool_get(file->strpool, file->path)));
+                PRIstrarg(File_get_path(file)),
+                PRIstrarg(File_get_bookmark_alias(file)));
     }
 }
 

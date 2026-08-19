@@ -13,7 +13,7 @@ typedef struct File {
     StrpoolId path;
     bool is_dir;
     struct tm mod_date;
-    StrpoolId bookmark_display_name;
+    StrpoolId bookmark_alias;
     Strpool *strpool;
     //strbuf_t *path;
     //strview_t bookmark_display_name;
