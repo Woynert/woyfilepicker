@@ -450,27 +450,6 @@ Rect2i Rect2i_stay_centered_and_contained(Rect2i r, Rect2i cont) {
     return r;
 }
 
-// @Note. Beware of this behaviour:
-//        /my/dir/ == False. Not a directory.
-//        /my/dir  == True. It's a directory.
-bool IsPathDirectory(const char *path) {
-    struct stat path_stat;
-    if (stat(path, &path_stat) != 0) { return false; }
-    return path_stat.st_mode & __S_IFDIR;
-}
-
-bool IsPathDirectory_arena(strview_t path, Arena scratch) {
-    if (!strview_is_valid(path)) { return false; }
-    if (path.data[path.size] == '/') { --path.size; }
-    strbuf_t *path_buf = strbuf_create_with_arena(path, &scratch);
-    return IsPathDirectory(path_buf->cstr);
-}
-
-bool IsPathFile_arena(strview_t path, Arena scratch) {
-    strbuf_t *path_buf = strbuf_create_with_arena(path, &scratch);
-    return IsPathFile(path_buf->cstr);
-}
-
 /*
    // Usage example:
    Rect2i chunks[3];

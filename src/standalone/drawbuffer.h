@@ -1,3 +1,8 @@
+// [NOT PART OF HEADER]
+#include "state.h"
+#define DBUF_IMG_T  Image
+#define DBUF_FONT_T wod_font_t
+// [!NOT PART OF HEADER]
 /*
    Simple draw buffer for 2D raylib commands:
 

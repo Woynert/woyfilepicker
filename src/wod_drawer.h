@@ -23,10 +23,14 @@ typedef uint32_t u32;
 typedef float    f32;
 
 typedef union {
-    strview_t view;
+    const strview_t view;
     struct {
         const char* data;
-        int size;
+        const int size;
+    };
+    struct {
+        char* __p_mutable_data;
+        int __p_mutable_size;
     };
 } wod_file_t;
 
@@ -108,7 +112,7 @@ const stbtt_packedchar* font_get_codepoint_info(wod_font_t font, int codepoint) 
 }
 
 // Prefer to call load_file_str.
-wod_file_t load_file(const char *path) {
+wod_file_t wod_load_file(const char *path) {
     char *buffer = NULL;
     FILE *file = fopen(path, "rb");
     if (!file) { goto exit_abort; }
@@ -139,16 +143,17 @@ wod_file_t load_file(const char *path) {
     return (wod_file_t) { .data = buffer, .size = size, };
 }
 
-wod_file_t load_file_str(const strview_t path, Arena scratch) {
+wod_file_t wod_load_file_str(const strview_t path, Arena scratch) {
     strbuf_t *path_buf = strbuf_create_with_arena(path, &scratch);
-    return load_file(path_buf->cstr);
+    return wod_load_file(path_buf->cstr);
 }
 
-void free_file(wod_file_t file) {
+void wod_free_file(wod_file_t file) {
     if (file.data) {
         free((void*)file.data);
     }
-    file = (wod_file_t) { 0 };
+    file.__p_mutable_data = 0;
+    file.__p_mutable_size = 0;
 }
 
 Image load_image(strview_t path) {
@@ -174,7 +179,7 @@ void free_image(Image img) {
 wod_font_t wod__load_font(Arena scratch, strview_t font_path, int font_size, V2i *ranges, int range_count) {
     char *bitmap = NULL;
     wod_font_t font = { 0 };
-    wod_file_t file = load_file_str(font_path, scratch);
+    wod_file_t file = wod_load_file_str(font_path, scratch);
     if (wod_error()) { goto quit_abort; }
 
     int font_index = 0;
@@ -222,12 +227,12 @@ wod_font_t wod__load_font(Arena scratch, strview_t font_path, int font_size, V2i
         if (bitmap)                { free((void*)bitmap); }
         if (font.ranges)           { free((void*)font.ranges); }
         if (font.packed_char_info) { free((void*)font.packed_char_info); }
-        free_file(file);
+        wod_free_file(file);
         wod__set_error(-1);
         return (wod_font_t) { 0 };
     }
 
-    free_file(file);
+    wod_free_file(file);
     wod__set_error(0);
     return (wod_font_t) {
         .font_size             = font_size,

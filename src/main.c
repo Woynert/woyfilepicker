@@ -1,3 +1,4 @@
+#include "operations.h"
 #include "wod_drawer.h"
 #include "state_init.h"
 #define DBUF_IMG_T  Image
@@ -61,12 +62,6 @@ void hook_glfw_callbacks(GLFWwindow* w, Ctx *ctx) {
     glfwSetWindowRefreshCallback(w, glfw_window_refresh_callback);
 }
 
-void test1(void) {
-    wod_file_t file = load_file("./assets/imgdemox32.png");
-    wassert(!wod_error());
-    free_file(file);
-}
-
 void setup(void) {
 }
 
@@ -89,6 +84,8 @@ int main(void) {
     hook_glfw_callbacks(window, ctx);
     ctx_init(ctx);
     ctx_load_assets(ctx);
+    get_env_vars(ctx);
+    update_bookmarks(ctx);
     ctx->window_size = initial_win_size;
     wod_set_drawer(olivewrap_make_drawer());
     x11back_init(window);

@@ -87,7 +87,7 @@ typedef struct uitree_Node {
 typedef struct Uitree {
     ArenaRoot arenaroot;
     Arena arena;
-    strpool strpool; // For temporarily storing Nodes' identifiers.
+    Strpool strpool; // For temporarily storing Nodes' identifiers.
 
     // Maps a title to a state. We might add or delete from this every frame.
     uitree_Map_str_state title_to_state;
@@ -193,7 +193,7 @@ void uitree__cleanup_saved_state(Uitree *t) {
     // Collect keys to purge.
 
     Arena arena = t->arena;
-    strpool old_keys;
+    Strpool old_keys;
     Vec_oldkeys old_keys_ids = Vec_oldkeys_create_with_allocator(arena_allocator, &arena);
     strpool_create_with_allocator(&old_keys, arena_allocator, &arena);
 

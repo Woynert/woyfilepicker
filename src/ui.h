@@ -100,6 +100,8 @@ void draw_all(Ctx *ctx, const bool force_redraw) {
     }
 
     b_draw_text(ctx->font1, cstr_SL("The quick brown fox jumps over the lazy dog éjpyóç"), v2i(0,300), ctx->font1.font_size, MAGENTA);
+    b_draw_text(ctx->font1, SF(&ctx->framearena, "Hello %d", 10), v2i(0,200), ctx->font1.font_size, MAGENTA);
+    b_draw_text(ctx->font1, SC(&ctx->framearena, SF(&ctx->framearena, "%d:%f", 10, 3.4f)), v2i(0,100), ctx->font1.font_size, MAGENTA);
 
     if (force_redraw || dbuf_do_buffers_differ()) {
         //draw_rect((Rect2i) {.size=ctx->window_size}, BLACK);

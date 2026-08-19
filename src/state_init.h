@@ -9,6 +9,13 @@ void ctx_init(Ctx *ctx) {
     *ctx = (Ctx){0};
     ctx->framearena_root = ArenaRoot_create(1024 * 1024);
     ctx->framearena = ArenaRoot_get_arena(ctx->framearena_root);
+    strpool_create(&ctx->strpool_explorer);
+    strpool_create(&ctx->strpool_bookmarks);
+    ctx->home = strbuf_create(0, NULL);
+    ctx->config = strbuf_create(0, NULL);
+    ctx->bookmarks = VecFile_create();
+    ctx->history_stack = VecFile_create();
+    ctx->folder_list = VecFile_create();
 }
 
 void ctx_load_assets(Ctx *ctx) {
@@ -16,9 +23,9 @@ void ctx_load_assets(Ctx *ctx) {
     ctx->icon1 = load_image(cstr_SL("assets/imgdemo3.png"));
     wassert(!wod_error());
 
-    wod_file_t file = load_file("./assets/Roboto-Regular.ttf");
+    wod_file_t file = wod_load_file("./assets/Roboto-Regular.ttf");
     wassert(!wod_error());
-    free_file(file);
+    wod_free_file(file);
 
    const V2i ranges[] = { // Ranges are inclusive
       {{ 0xFFFD,  0xFFFD }},  // (�) codepoint
@@ -41,6 +48,10 @@ void ctx_free(Ctx *ctx) {
     free_image(ctx->icon1);
     ArenaRoot_free(&ctx->framearena_root);
     free_font(ctx->font1);
+    strpool_destroy(&ctx->strpool_bookmarks);
+    strpool_destroy(&ctx->strpool_explorer);
+    strbuf_destroy(&ctx->home);
+    strbuf_destroy(&ctx->config);
 }
 
 #endif // !STATE_INIT_H
