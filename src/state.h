@@ -35,6 +35,7 @@ typedef struct Ctx {
 
     Strpool strpool_explorer;
     Strpool strpool_bookmarks;
+    Strpool strpool_general;
 
     V2i window_size;
 
@@ -48,6 +49,8 @@ typedef struct Ctx {
     VecFile folder_list;
     strbuf_t *home;
     strbuf_t *config;
+    File default_location;
+    int curr_location_idx;
 } Ctx;
 
 #endif

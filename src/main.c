@@ -83,9 +83,10 @@ int main(void) {
     Ctx *ctx = &__ctx;
     hook_glfw_callbacks(window, ctx);
     ctx_init(ctx);
-    ctx_load_assets(ctx);
-    ctx_get_env_vars(ctx);
+    ctx_setup(ctx);
     update_bookmarks(ctx);
+    refresh_listing(ctx);
+    debug_print_listing(ctx);
     ctx->window_size = initial_win_size;
     wod_set_drawer(olivewrap_make_drawer());
     x11back_init(window);
@@ -111,6 +112,7 @@ int main(void) {
     glfwPollEvents();
     while (!glfwWindowShouldClose(window) && !must_close)
     {
+        glfwPollEvents();
         force_ui_redraw = false;
         FRAME_START_TIME_NS = get_system_ns();
 
@@ -121,7 +123,7 @@ int main(void) {
             fps_calculation = ticks;
             ticks = 0;
         }
-        printf("FPS %d\n", fps_calculation);
+        /*printf("FPS %d\n", fps_calculation);*/
 
         if (must_resize) {
             must_resize = false;
@@ -149,9 +151,27 @@ int main(void) {
             x11_draw_texture();
         }
 
+        if (kinput_key_pressed(GLFW_KEY_SPACE)) {
+            printfd("Press");
+            long start = get_system_ns();
+            refresh_listing(ctx);
+            long end = get_system_ns();
+            debug_print_listing(ctx);
+            printfd(ANSI_MAG"refresh_listing took %f", ((double)end-(double)start)/(1000000000.f));
+        }
+        if (kinput_key_pressed(GLFW_KEY_A)) {
+            navigate_backwards(ctx);
+        }
+        if (kinput_key_pressed(GLFW_KEY_W)) {
+            navigate_parent_dir(ctx);
+        }
+        if (kinput_key_pressed(GLFW_KEY_D)) {
+            navigate_forward(ctx);
+        }
+
         ctx->framearena = ArenaRoot_get_arena(ctx->framearena_root);
 
-        glfwPollEvents();
+        kinput_frame_end();
         long long frame_time = (get_system_ns() - FRAME_START_TIME_NS);
         long long time_since_last = get_system_ns() - last_frame_timestamp_ns;
         /*printfd("Frame: Ideal %.4fms, Actual %.4fms, FPS %.2f",*/

@@ -6,17 +6,34 @@
 #include "wod_drawer.h"
 #include <sys/stat.h>
 
+int make_file(Arena scratch, File *out_file, strview_t path, Strpool *strpool);
+
+void ctx_get_env_vars(Ctx *ctx) {
+    const char* home = getenv("HOME");
+    strview_t home_view = home ? cstr(home) : cstr_SL("/");
+    strbuf_assign(&ctx->home, home_view);
+    const char* config = getenv("XDG_CONFIG_HOME");
+    if (config) {
+        strbuf_assign(&ctx->config, cstr(config));
+    } else {
+        strbuf_cat(&ctx->config, strview(ctx->home), cstr_SL("/.config"));
+    }
+    // NOTE: We could definitely do some sanitizing on HOME and config.
+}
+
 void ctx_init(Ctx *ctx) {
     *ctx = (Ctx){0};
     ctx->framearena_root = ArenaRoot_create(1024 * 1024);
     ctx->framearena = ArenaRoot_get_arena(ctx->framearena_root);
     strpool_create(&ctx->strpool_explorer);
     strpool_create(&ctx->strpool_bookmarks);
+    strpool_create(&ctx->strpool_general);
     ctx->home = strbuf_create(0, NULL);
     ctx->config = strbuf_create(0, NULL);
     ctx->bookmarks = VecFile_create();
     ctx->history_stack = VecFile_create();
     ctx->folder_list = VecFile_create();
+    ctx_get_env_vars(ctx);
 }
 
 void ctx_load_assets(Ctx *ctx) {
@@ -51,6 +68,7 @@ void ctx_free(Ctx *ctx) {
     free_font(ctx->font1);
     strpool_destroy(&ctx->strpool_bookmarks);
     strpool_destroy(&ctx->strpool_explorer);
+    strpool_destroy(&ctx->strpool_general);
     strbuf_destroy(&ctx->home);
     strbuf_destroy(&ctx->config);
     VecFile_free(&ctx->bookmarks);
@@ -78,7 +96,43 @@ void File_set_alias(File *file, strview_t alias) {
 }
 
 /// @Returns error.
-int make_file(Ctx *ctx, File *out_file, strview_t path, Strpool *strpool) {
+int make_file(Arena scratch, File *out_file, strview_t path, Strpool *strpool) {
+    File file = { .strpool = strpool };
+    strbuf_t *path_buf = strbuf_create_with_arena(path, &scratch);
+    {
+        struct stat path_stat;
+        if (stat(path_buf->cstr, &path_stat) != 0) { return -1; }
+        struct tm *mod_date = localtime(&path_stat.st_mtime);
+        file.mod_date = *mod_date;
+        file.is_dir = path_stat.st_mode & __S_IFDIR;
+    }
+    file.path = strpool_append(strpool, path);
+    path = strview_trim_dir_separator(path);
+    strview_t alias = strview_split_last_delim(&path, "/", false);
+    File_set_alias(&file, alias);
+    *out_file = file;
+    return 0;
+}
+
+int make_file2(Arena scratch, File *out_file, strview_t path, Strpool *strpool) {
+    File file = { .strpool = strpool };
+    strbuf_t *path_buf = strbuf_create_with_arena(path, &scratch);
+    {
+        struct stat path_stat;
+        if (stat(path_buf->cstr, &path_stat) != 0) { return -1; }
+        struct tm *mod_date = localtime(&path_stat.st_mtime);
+        file.mod_date = *mod_date;
+        file.is_dir = path_stat.st_mode & __S_IFDIR;
+    }
+    file.path = strpool_append(strpool, path);
+    strview_t alias = strview_split_last_delim(&path, "/", false);
+    file.bookmark_alias = strpool_append(file.strpool, alias);
+    *out_file = file;
+    return 0;
+}
+
+/*
+int make_file2(Ctx *ctx, File *out_file, strview_t path, Strpool *strpool, bool is_dir) {
     File file = { .strpool = strpool };
     strbuf_t *path_buf = strbuf_create_with_arena(path, &ctx->framearena);
     {
@@ -95,15 +149,21 @@ int make_file(Ctx *ctx, File *out_file, strview_t path, Strpool *strpool) {
     *out_file = file;
     return 0;
 }
+*/
 
-strview_t File_get_path(File *file) {
-    return strpool_get(file->strpool, file->path);
+strview_t File_get_path_copy(const File file, Arena *perm) {
+    strview_t path = strpool_get(file.strpool, file.path);
+    return SC(perm, path);
 }
 
-strview_t File_get_bookmark_alias(File *file) {
-    strview_t alias = strpool_get(file->strpool, file->bookmark_alias);
+strview_t File_get_path(const File file) {
+    return strpool_get(file.strpool, file.path);
+}
+
+strview_t File_get_bookmark_alias(const File file) {
+    strview_t alias = strpool_get(file.strpool, file.bookmark_alias);
     if (!strview_is_empty(alias)) return alias;
-    return strpool_get(file->strpool, file->path);
+    return strpool_get(file.strpool, file.path);
 }
 
 #endif // !STATE_INIT_H
