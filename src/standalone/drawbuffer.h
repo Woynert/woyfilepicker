@@ -2,7 +2,9 @@
 #include "state.h"
 #define DBUF_IMG_T  Image
 #define DBUF_FONT_T wod_font_t
+#define DBUF__DEBUG
 // [!NOT PART OF HEADER]
+
 /*
    Simple draw buffer for 2D raylib commands:
 
@@ -18,7 +20,7 @@
 #define DRAWBUFFER_H
 
 #if (!defined(DBUF_IMG_T) || !defined(DBUF_FONT_T))
-    // "Must define Image type and Font type."
+    #error "Must define Image type and Font type."
     #define DBUF_IMG_T  int
     #define DBUF_FONT_T int
 #endif
@@ -32,37 +34,79 @@
 
 typedef enum {
     DRAWCMD_RECT,
-    DRAWCMD_RECT_LINES,
+    DRAWCMD_FRAME,
     DRAWCMD_TEXT,
     DRAWCMD_TEXTURE,
     DRAWCMD_BEGIN_SCISSOR,
     DRAWCMD_END_SCISSOR,
 } DrawCmd;
 
-typedef struct { Rect2i r; Color color; }
-dbuf_draw_rect_args_t;
-typedef struct { Rect2i r; Color color; int thickness; }
-dbuf_draw_frame_args_t;
 typedef struct {
-    DBUF_FONT_T font;
-    V2i position;
-    int font_size;
-    int spacing;
-    int textLineSpacing;
-    Color tint;
-    int str_size;
-    char str_data[]; }
-dbuf_draw_text_args_t;
+    #define STRUCT_MEMBERS       \
+    X( Rect2i , r        )       \
+    X( Color  , color    )
+    #define X(type, name) type name;
+    STRUCT_MEMBERS
+    #undef X
+} dbuf_draw_rect_args_t;
+#define STRUCT_NAME dbuf_draw_rect_args_t
+#include "struct_assert_no_padding.h"
+
 typedef struct {
-    DBUF_IMG_T img;
-    Rect2i source;
-    Rect2i dest;
-    V2i origin;
-    float rotation;
-    Color tint; }
-dbuf_draw_texture_args_t;
-typedef struct { Rect2i r; }
-dbuf_scissor_args_t;
+    #define STRUCT_MEMBERS       \
+    X( Rect2i , r        )       \
+    X( Color  , color    )       \
+    X( int    , thickness)
+    #define X(type, name) type name;
+    STRUCT_MEMBERS
+    #undef X
+} dbuf_draw_frame_args_t;
+#define STRUCT_NAME dbuf_draw_frame_args_t
+#include "struct_assert_no_padding.h"
+
+typedef struct {
+    #define STRUCT_MEMBERS           \
+    X( DBUF_FONT_T, font           ) \
+    X( V2i      , position         ) \
+    X( int      , font_size        ) \
+    X( int      , spacing          ) \
+    X( int      , textLineSpacing  ) \
+    X( Color    , tint             ) \
+    X( int      , __pad            ) \
+    X( int      , str_size         )
+    #define X(type, name) type name;
+    STRUCT_MEMBERS
+    #undef X
+    char str_data[];
+} dbuf_draw_text_args_t;
+#define STRUCT_NAME dbuf_draw_text_args_t
+#include "struct_assert_no_padding.h"
+
+typedef struct {
+    #define STRUCT_MEMBERS  \
+    X( Rect2i , r       )
+    #define X(type, name) type name;
+    STRUCT_MEMBERS
+    #undef X
+} dbuf_scissor_args_t;
+#define STRUCT_NAME dbuf_scissor_args_t
+#include "struct_assert_no_padding.h"
+
+typedef struct {
+    #define STRUCT_MEMBERS      \
+    X( DBUF_IMG_T , img       ) \
+    X( Rect2i     , source    ) \
+    X( Rect2i     , dest      ) \
+    X( V2i        , origin    ) \
+    X( float      , rotation  ) \
+    X( Color      , tint      )
+    #define X(type, name) type name;
+    STRUCT_MEMBERS
+    #undef X
+} dbuf_draw_texture_args_t;
+#define STRUCT_NAME dbuf_draw_texture_args_t
+#include "struct_assert_no_padding.h"
+
 
 typedef void (*dbuf_draw_rect_t)  (Rect2i rect, Color color);
 typedef void (*dbuf_draw_frame_t) (Rect2i rect, Color color, int thickness);
@@ -155,31 +199,44 @@ void dbuf_set_layer(uint8_t layer) {
 
 uint8_t dbuf_get_layer(void) { return dbuf__ctx.currlayer; }
 
+void dbuf__print_binary(const void *data, size_t length) {
+    const unsigned char *byte_ptr = (const unsigned char *)data;
+    printf(ANSI_RED"HEX DATA\n");
+    for (size_t i = 0; i < length; i++) { printf("%02X ", byte_ptr[i]); }
+    printf("\n");
+}
+
 bool dbuf_do_buffers_differ(void) {
     for (int i = 0; i < countofi(dbuf__ctx.swap[0].layers); ++i) {
         dbuf_layer_t *la = &dbuf__ctx.swap[0].layers[i];
         dbuf_layer_t *lb = &dbuf__ctx.swap[1].layers[i];
-        //if ((la->commands.size != lb->commands.size)) {
-            //printfd(ANSI_GRE"Buffers differ 1 (%d, %d)", la->commands.size, lb->commands.size);
-            //return true;
-        //}
-        //if ((la->arena.end - la->arena.root) != (lb->arena.end - lb->arena.root)) {
-            //printfd(ANSI_GRE"Buffers differ 2");
-            //return true;
-        //}
-        //if ((la->commands.size != 0 && memcmp(la->commands.items, lb->commands.items, (size_t)la->commands.size * sizeof(la->commands.items[0])))) {
-            //printfd(ANSI_GRE"Buffers differ 3");
-            //return true;
-        //}
-        //if (memcmp(la->arena.root, lb->arena.root, (size_t)(la->arena.end - la->arena.root))) {
-            //printfd(ANSI_GRE"Buffers differ 4");
-            //return true;
-        //}
+#ifdef DBUF__DEBUG
+        if ((la->commands.size != lb->commands.size)) {
+            printfd(ANSI_GRE"(layer%d) Buffers differ 1 (%d, %d)", i, la->commands.size, lb->commands.size);
+            return true;
+        }
+        if ((la->arena.beg - la->arena.root) != (lb->arena.beg - lb->arena.root)) {
+            printfd(ANSI_GRE"(layer%d) Buffers differ 2 (%ld, %ld)", i, (la->arena.beg - la->arena.root), (lb->arena.beg - lb->arena.root));
+            dbuf__print_binary(la->arena.root, (size_t)(la->arena.beg - la->arena.root));
+            dbuf__print_binary(lb->arena.root, (size_t)(lb->arena.beg - lb->arena.root));
+            return true;
+        }
+        if ((la->commands.size != 0 && memcmp(la->commands.items, lb->commands.items, (size_t)la->commands.size * sizeof(la->commands.items[0])))) {
+            printfd(ANSI_GRE"(layer%d) Buffers differ 3", i);
+            return true;
+        }
+        if (memcmp(la->arena.root, lb->arena.root, (size_t)(la->arena.beg - la->arena.root))) {
+            printfd(ANSI_GRE"(layer%d) Buffers differ 4", i);
+            dbuf__print_binary(la->arena.root, (size_t)(la->arena.beg - la->arena.root));
+            dbuf__print_binary(lb->arena.root, (size_t)(la->arena.beg - la->arena.root));
+            return true;
+        }
+#endif
         if (
            (la->commands.size != lb->commands.size)
-           || ((la->arena.end - la->arena.root) != (lb->arena.end - lb->arena.root))
+           || ((la->arena.beg - la->arena.root) != (lb->arena.beg - lb->arena.root))
            || (la->commands.size != 0 && memcmp(la->commands.items, lb->commands.items, (size_t)la->commands.size * sizeof(la->commands.items[0])))
-           || (memcmp(la->arena.root, lb->arena.root, (size_t)(la->arena.end - la->arena.root)))
+           || (memcmp(la->arena.root, lb->arena.root, (size_t)(la->arena.beg - la->arena.root)))
         ) {
             return true;
         }
@@ -190,6 +247,7 @@ bool dbuf_do_buffers_differ(void) {
 void dbuf_draw_start(void) {
     // Swap.
     dbuf__ctx.curr = dbuf__ctx.curr == &dbuf__ctx.swap[0] ? &dbuf__ctx.swap[1] : &dbuf__ctx.swap[0];
+    printfd(ANSI_GRE"GONNA BE USING buffer N=%d ", dbuf__ctx.curr == &dbuf__ctx.swap[0] ? 0 : 1);
     for (int i = 0; i < countofi(dbuf__ctx.curr->layers); ++i) {
         dbuf_layer_t *layer = &dbuf__ctx.curr->layers[i];
         arenady_reset_beginning(&layer->arena);
@@ -208,11 +266,15 @@ void dbuf_draw_end(void) {
                 {
                     dbuf_draw_rect_args_t *args = arenady_new(&layer->arena, dbuf_draw_rect_args_t, 1);
                     dbuf__ctx.draw_rect_cb(args->r, args->color);
+                    printfd("DRAWCMD_RECT");
+                    dbuf__print_binary(args, sizeof(dbuf_draw_rect_args_t));
                 } break;
-                case DRAWCMD_RECT_LINES:
+                case DRAWCMD_FRAME:
                 {
                     dbuf_draw_frame_args_t *args = arenady_new(&layer->arena, dbuf_draw_frame_args_t, 1);
                     dbuf__ctx.draw_frame_cb(args->r, args->color, args->thickness);
+                    printfd("DRAWCMD_FRAME");
+                    dbuf__print_binary(args, sizeof(dbuf_draw_frame_args_t));
                 } break;
                 case DRAWCMD_TEXT:
                 {
@@ -243,6 +305,8 @@ void dbuf_draw_end(void) {
 void b_draw_texture_ext(DBUF_IMG_T img, Rect2i source, Rect2i dest, V2i origin, float rotation, Color tint) {
     dbuf_layer_t *layer = &dbuf__ctx.curr->layers[dbuf__ctx.currlayer];
     dbuf_draw_texture_args_t *args = arenady_new(&layer->arena, dbuf_draw_texture_args_t, 1);
+    // @Note(woy): Zeroing user provided type.
+    memset(&args->img, 0, sizeof(args->img));
     *args = (dbuf_draw_texture_args_t) { img, source, dest, origin, rotation, tint };
     Vec_DrawCmd_append(&layer->commands, DRAWCMD_TEXTURE);
 }
@@ -250,6 +314,7 @@ void b_draw_texture_ext(DBUF_IMG_T img, Rect2i source, Rect2i dest, V2i origin, 
 void b_draw_rect(Rect2i r, Color color) {
     dbuf_layer_t *layer = &dbuf__ctx.curr->layers[dbuf__ctx.currlayer];
     dbuf_draw_rect_args_t *args = arenady_new(&layer->arena, dbuf_draw_rect_args_t, 1);
+    *args = (dbuf_draw_rect_args_t) { 0 };
     args->r = r;
     args->color = color;
     Vec_DrawCmd_append(&layer->commands, DRAWCMD_RECT);
@@ -261,7 +326,7 @@ void b_draw_frame(Rect2i r, Color color, int thickness) {
     args->r = r;
     args->color = color;
     args->thickness = thickness;
-    Vec_DrawCmd_append(&layer->commands, DRAWCMD_RECT_LINES);
+    Vec_DrawCmd_append(&layer->commands, DRAWCMD_FRAME);
 }
 
 void b_draw_text_ext(DBUF_FONT_T font, const strview_t str, V2i pos, int font_size, int spacing, int textLineSpacing, Color tint) {
@@ -270,13 +335,12 @@ void b_draw_text_ext(DBUF_FONT_T font, const strview_t str, V2i pos, int font_si
     // Allocate struct + string in one call.
     dbuf_draw_text_args_t *args = (dbuf_draw_text_args_t *)
         arenady_alloc(&layer->arena, (i64)(sizeof(dbuf_draw_text_args_t) + (size_t)str.size), _Alignof(dbuf_draw_text_args_t), 1);
-    args->font = font;
-    args->position = pos;
-    args->font_size = font_size;
-    args->spacing = spacing;
-    args->textLineSpacing = textLineSpacing;
-    args->tint = tint;
-    args->str_size = str.size;
+    // @Note(woy): Zeroing user provided type.
+    memset(&args->font, 0, sizeof(args->font));
+    *args = (dbuf_draw_text_args_t) {
+        .font = font, .position = pos, .font_size = font_size, .spacing = spacing,
+        .textLineSpacing = textLineSpacing, .tint = tint, .str_size = str.size,
+    };
     memmove(args->str_data, str.data, (size_t)str.size);
     Vec_DrawCmd_append(&layer->commands, DRAWCMD_TEXT);
 }
@@ -294,7 +358,6 @@ void b_draw_end_scissor(void) {
 }
 
 // Extra functions for easy of use.
-
 
 void b_draw_text(DBUF_FONT_T font, const strview_t str, V2i pos, int font_size, Color tint) {
     b_draw_text_ext(font, str, pos, font_size, 0, 0, tint);
