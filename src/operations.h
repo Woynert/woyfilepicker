@@ -23,10 +23,10 @@ void ctx_setup(Ctx *ctx) {
 void parse_gtk_bookmarks(Ctx *ctx, strview_t bookmarks_path) {
     // ~/.config/gtk-3.0/bookmarks
     // ~/.config/gtk-4.0/bookmarks
-    // Format:
-    //     URI [Optional Alias]
-    //     URI [Optional Alias]
-    //     URI [Optional Alias]
+    // The format is as follows:
+    // URI [Optional Alias]
+    // URI [Optional Alias]
+    // URI [Optional Alias]
     int err;
     wod_file_t file = wod_load_file_str(bookmarks_path, ctx->framearena);
     if (wod_error()) { return; }
@@ -97,6 +97,7 @@ File ctx_get_curr_dir(Ctx *ctx) {
 int ctx_get_history_stack_idx(Ctx *ctx, int offset) {
     return ctx->history_stack.size -1 -offset;
 }
+
 
 void debug_print_history_stack(Ctx *ctx) {
     printfd("[ ↓ HISTORY STACK]");

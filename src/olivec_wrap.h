@@ -10,9 +10,13 @@
 
 struct {
     Olivec_Canvas canvas;
-    bool scissor_enabled;
     Olivec_Canvas canvas_scissor_bk;
+    bool scissor_enabled;
+    Rect2i scissor_rect;
 } olivewrap_ctx;
+
+#define SCISSOR_CORRECT_POSITION(POS) \
+    do{ POS = !olivewrap_ctx.scissor_enabled ? POS : v2i_sub(POS, olivewrap_ctx.scissor_rect.pos); }while(0)
 
 void olivewrap_set_buffer(u32 *pixels, V2i size, int stride) {
     olivewrap_ctx.canvas = olivec_canvas(pixels, (size_t)size.x, (size_t)size.y, (size_t)stride);
@@ -21,14 +25,17 @@ void olivewrap_set_buffer(u32 *pixels, V2i size, int stride) {
 }
 
 void olivewrap_draw_rect(Rect2i rect, Color color) {
+    SCISSOR_CORRECT_POSITION(rect.pos);
     olivec_rect(olivewrap_ctx.canvas, rect.x, rect.y, rect.width, rect.height, color.val);
 }
 
 void olivewrap_draw_frame(Rect2i rect, Color color, int tickness) {
+    SCISSOR_CORRECT_POSITION(rect.pos);
     olivec_frame(olivewrap_ctx.canvas, rect.x, rect.y, rect.width, rect.height, (size_t)tickness, color.val);
 }
 
 void olivewrap_draw_texture(Image img, Rect2i source, Rect2i dest, V2i origin, float rotation, Color tint) {
+    SCISSOR_CORRECT_POSITION(dest.pos);
     olivec_sprite_blend(olivewrap_ctx.canvas, dest.x, dest.y, dest.width, dest.height,
         olivec_subcanvas(
             olivec_canvas(img.pixels, (size_t)img.size.x, (size_t)img.size.y, (size_t)img.size.x),
@@ -37,6 +44,7 @@ void olivewrap_draw_texture(Image img, Rect2i source, Rect2i dest, V2i origin, f
 }
 
 void olivewrap_draw_texture_bitmap(Image img, Rect2i source, Rect2i dest, Color tint) {
+    SCISSOR_CORRECT_POSITION(dest.pos);
     olivec_bitmap_blend(olivewrap_ctx.canvas, dest.x, dest.y, dest.width, dest.height,
         olivec_subbitmap(
             olivec_bitmap(img.data, (size_t)img.size.x, (size_t)img.size.y, (size_t)img.size.x),
@@ -50,6 +58,7 @@ void olivewrap_scissor(bool start_end, Rect2i rect) {
     if (start_end) {
         olivewrap_ctx.canvas_scissor_bk = olivewrap_ctx.canvas;
         olivewrap_ctx.canvas = olivec_subcanvas(olivewrap_ctx.canvas, rect.x, rect.y, rect.width, rect.height);
+        olivewrap_ctx.scissor_rect = rect;
     }
 }
 
@@ -64,4 +73,5 @@ Drawer olivewrap_make_drawer(void) {
     };
 }
 
+#undef SCISSOR_CORRECT_POSITION
 #endif

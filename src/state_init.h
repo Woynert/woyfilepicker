@@ -59,6 +59,11 @@ void ctx_load_assets(Ctx *ctx) {
     wassert(!wod_error());
     //stbtt_print_bitmap((unsigned char*)font.bitmap.data, font.bitmap.size.x, font.bitmap.size.y);
     ctx->font1 = font;
+
+    font = load_font(ctx->framearena, cstr_SL("./assets/IosevkaFixed-Regular.ttf"), 18, (V2i*)ranges, countofi(ranges));
+    stbtt_print_bitmap((unsigned char*)font.bitmap.data, font.bitmap.size.x, font.bitmap.size.y);
+    wassert(!wod_error());
+    ctx->font_mono = font;
 }
 
 
@@ -66,6 +71,7 @@ void ctx_free(Ctx *ctx) {
     free_image(ctx->icon1);
     ArenaRoot_free(&ctx->framearena_root);
     free_font(ctx->font1);
+    free_font(ctx->font_mono);
     strpool_destroy(&ctx->strpool_bookmarks);
     strpool_destroy(&ctx->strpool_explorer);
     strpool_destroy(&ctx->strpool_general);
@@ -74,6 +80,8 @@ void ctx_free(Ctx *ctx) {
     VecFile_free(&ctx->bookmarks);
     VecFile_free(&ctx->history_stack);
     VecFile_free(&ctx->folder_list);
+    textbox_free(&ctx->tbox_path);
+    textbox_free(&ctx->tbox_search);
 }
 
 void free_file(File *file) {

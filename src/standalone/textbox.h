@@ -13,7 +13,6 @@
 #include "portable_utils.h"
 #include "strbuf_extra.h"
 #include "wstrview.h"
-#include <GLFW/glfw3.h>
 
 unsigned char textbox__mask[5] = {
     0x80, // 10000000: 1 byte length mask.
@@ -66,7 +65,7 @@ int textbox__grow(Textbox *t, int min_capacity) {
 int textbox_set_buffer(Textbox *t, const char *buf, int size) {
     int err = textbox__grow(t, size);
     if (err != 0) { printferr("Couldn't grow. OOM?"); return 0; }
-    memmove(t->buffer, buf, (size_t)size);
+    if (size > 0) { memmove(t->buffer, buf, (size_t)size); }
     t->size = size;
     t->cursor = size;
     return 0;
@@ -135,26 +134,26 @@ void textbox__cursor_right(Textbox *t) {
 }
 
 void textbox_add_codepoint(Textbox *t, unsigned int codepoint) {
-    // Codepoint to utf8 table (see man 7 utf-8):
+    // (See man 7 utf-8) Codepoint to utf8 table (ranges are inclusive):
     // U+0000 to U+007F    | 1 byte  | 0xxxxxxx
     // U+0080 to U+07FF    | 2 bytes | 110xxxxx 10xxxxxx
     // U+0800 to U+FFFF    | 3 bytes | 1110xxxx 10xxxxxx 10xxxxxx
     // U+10000 to U+10FFFF | 4 bytes | 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
     unsigned char bytes[4] = { 0 };
     int length = 0;
-    if (codepoint < 0x7F) {
+    if (codepoint <= 0x7F) {
         length = 1;
         bytes[0] = codepoint & 0xFF;
-    } else if (codepoint < 0x07FF) {
+    } else if (codepoint <= 0x07FF) {
         length = 2;
         bytes[1] = ((codepoint & 0xFF) & (0xFF ^ textbox__mask[4])) | textbox__prefix[4]; codepoint >>= 6;
         bytes[0] = ((codepoint & 0xFF) & (0xFF ^ textbox__mask[1])) | textbox__prefix[1];
-    } else if (codepoint < 0xFFFF) {
+    } else if (codepoint <= 0xFFFF) {
         length = 3;
         bytes[2] = ((codepoint & 0xFF) & (0xFF ^ textbox__mask[4])) | textbox__prefix[4]; codepoint >>= 6;
         bytes[1] = ((codepoint & 0xFF) & (0xFF ^ textbox__mask[4])) | textbox__prefix[4]; codepoint >>= 6;
         bytes[0] = ((codepoint & 0xFF) & (0xFF ^ textbox__mask[2])) | textbox__prefix[2];
-    } else if (codepoint < 0x10FFFF) {
+    } else if (codepoint <= 0x10FFFF) {
         length = 4;
         bytes[3] = ((codepoint & 0xFF) & (0xFF ^ textbox__mask[4])) | textbox__prefix[4]; codepoint >>= 6;
         bytes[2] = ((codepoint & 0xFF) & (0xFF ^ textbox__mask[4])) | textbox__prefix[4]; codepoint >>= 6;
@@ -165,6 +164,12 @@ void textbox_add_codepoint(Textbox *t, unsigned int codepoint) {
     textbox__insert_codepoint(t, (char*)bytes, length);
 }
 
+
+// ↓↓↓ PLATFORM SPECIFIC CODE GOES HERE ↓↓↓
+
+#include <GLFW/glfw3.h>
+#include "la_extra.h"
+#include "drawbuffer.h"
 
 void textbox_glfw_key_callback(Textbox *t, int key, int scancode, int action, int mods) {
     (void)scancode, (void)mods;
@@ -193,7 +198,16 @@ void textbox_glfw_key_callback(Textbox *t, int key, int scancode, int action, in
 }
 
 
-void textbox_draw(Textbox *t) {
+void textbox_draw(Textbox *t, Rect2i rect) {
+    b_draw_frame(rect, BLACK, 1);
+    //b_draw_text_ext
 }
+
+void textbox_free(Textbox *t) {
+    if (t->buffer) { free(t->buffer); }
+    *t = (Textbox) { 0 };
+}
+
+// ↑↑↑ PLATFORM SPECIFIC CODE  ↑↑↑
 
 #endif

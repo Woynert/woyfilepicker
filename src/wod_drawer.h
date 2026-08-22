@@ -327,7 +327,7 @@ void draw_scissor(bool start_end, Rect2i rect) {
     wod__drawer.scissor(start_end, rect);
 }
 
-void draw_text(const strview_t text, wod_font_t font, V2i pos, int font_size, int spacing, int textLineSpacing, Color color) {
+void draw_text(const strview_t text, const wod_font_t font, V2i pos, int font_size, int spacing, int textLineSpacing, Color color) {
     int xoffset = 0;
     int baseline = pos.y + font.font_size;
 

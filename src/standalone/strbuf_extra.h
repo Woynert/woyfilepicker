@@ -204,6 +204,22 @@ strview_t strview_trim_dir_separator(strview_t str) {
     return strview_trim_end(str, "/");
 }
 
+/* @returns byte cursor. */
+int utf8_visually_nearest(const char *str, int size, int visual_char_count_target) {
+    int count = 0;
+    int codepoint_size = 0;
+    for (int i = 0; i < size;) {
+        if (count >= visual_char_count_target) {
+            return i;
+        }
+        GetCodepointNext_woy(&str[i], &codepoint_size, size-i);
+        i += codepoint_size;
+        ++count;
+    }
+    return size;
+}
+
+
 /*
 void strbuf_pop_at_index_TEST(void) {
     strbuf_t *line = strbuf_create_init(cstr(""), NULL);

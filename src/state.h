@@ -3,8 +3,14 @@
 
 #include "la_extra.h"
 #include "wod_drawer.h"
+#include "textbox.h"
 #define STRPOOL_STR strview_t
 #include "strpool.h"
+
+bool MUST_CLOSE = false;
+bool MUST_REDRAW = false;
+bool MUST_RESIZE = false;
+bool FORCE_UI_REDRAW = false;
 
 typedef int StrpoolId;
 
@@ -14,15 +20,6 @@ typedef struct File {
     struct tm mod_date;
     StrpoolId bookmark_alias;
     Strpool *strpool;
-    //bool valid;
-    //strbuf_t *path;
-    //strview_t bookmark_display_name;
-    //strpool_id 
-    //int dir_type; // Folder or drive.
-    //long edit_date;
-    //long creation_date;
-    //struct tm edit_date;
-    //struct tm *time_info = localtime(&file_stat.st_mtime);
 } File;
 
 #define DYNA__TYPE File
@@ -38,10 +35,13 @@ typedef struct Ctx {
     Strpool strpool_general;
 
     V2i window_size;
+    Textbox tbox_path;
+    Textbox tbox_search;
 
     // Assets.
     Image icon1;
     wod_font_t font1;
+    wod_font_t font_mono;
 
     // Navigation.
     VecFile bookmarks;

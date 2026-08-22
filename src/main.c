@@ -1,4 +1,5 @@
 #include "operations.h"
+#include "textbox.h"
 #include "wod_drawer.h"
 #include "state_init.h"
 #define DBUF_IMG_T  Image
@@ -20,37 +21,58 @@
 #define LA_IMPLEMENTATION
 #include "la.h"
 
-bool must_close = false;
-bool must_redraw = false;
-bool must_resize = false;
-bool force_ui_redraw = false;
+static Textbox textbox = { 0 };
+void textbox_debug_DELME(void) {
+    
+}
 
 void glfw_mouse_callback(GLFWwindow* w, int button, int action, int mods) {
     winput_glfw_mouse_button_callback(w, button, action, mods);
+    uimouseinput_glfw_mouse_button_callback(w, button, action, mods);
+    MUST_REDRAW = true;
 }
 void glfw_scroll_callback(GLFWwindow* w, double xoffset, double yoffset) {
     winput_glfw_scroll_callback(w, xoffset, yoffset);
+    MUST_REDRAW = true;
 }
 void glfw_cursor_pos_callback(GLFWwindow *w, double xpos, double ypos) {
     winput_glfw_cursor_pos_callback(w, xpos, ypos);
-    must_redraw = true;
+    MUST_REDRAW = true;
 }
 void glfw_key_callback(GLFWwindow* w, int key, int scancode, int action, int mods) {
     kinput_glfw_key_callback(w, key, scancode, action, mods);
-    must_redraw = true;
+    MUST_REDRAW = true;
     if (kinput_key_pressed(GLFW_KEY_Q)) {
-        must_close = true;
+        MUST_CLOSE = true;
     }
+    textbox_glfw_key_callback(&textbox, key, scancode, action, mods);
+}
+void glfw_char_callback(GLFWwindow* w, unsigned int codepoint) {
+    textbox_add_codepoint(&textbox, codepoint);
+    if (kinput_key_pressed(GLFW_KEY_T)) {
+        textbox_add_codepoint(&textbox, 0x0041);
+        textbox_add_codepoint(&textbox, 0x007A);
+        textbox_add_codepoint(&textbox, 0x00A9);
+        textbox_add_codepoint(&textbox, 0x00FF);
+        textbox_add_codepoint(&textbox, 0x0100);
+        textbox_add_codepoint(&textbox, 0x07FF);
+        textbox_add_codepoint(&textbox, 0x0800);
+        textbox_add_codepoint(&textbox, 0xFFFF);
+        textbox_add_codepoint(&textbox, 0x10000);
+        textbox_add_codepoint(&textbox, 0x1F600);
+    }
+    textbox__debug_print(&textbox);
+    MUST_REDRAW = true;
 }
 void glfw_window_size_callback (GLFWwindow *w, int width, int height) {
     Ctx *ctx = (Ctx*)glfwGetWindowUserPointer(w);
     ctx->window_size = (V2i) {{ width, height }};
-    must_resize = true;
-    must_redraw = true;
+    MUST_RESIZE = true;
+    MUST_REDRAW = true;
 }
 void glfw_window_refresh_callback (GLFWwindow *w) {
     Ctx *ctx = (Ctx*)glfwGetWindowUserPointer(w);
-    must_redraw = true;
+    MUST_REDRAW = true;
 }
 void hook_glfw_callbacks(GLFWwindow* w, Ctx *ctx) {
     glfwSetWindowUserPointer(w, ctx);
@@ -58,12 +80,14 @@ void hook_glfw_callbacks(GLFWwindow* w, Ctx *ctx) {
     glfwSetMouseButtonCallback(w, glfw_mouse_callback);
     glfwSetScrollCallback(w, glfw_scroll_callback);
     glfwSetKeyCallback(w, glfw_key_callback);
+    glfwSetCharCallback(w, glfw_char_callback);
     glfwSetWindowSizeCallback(w, glfw_window_size_callback);
     glfwSetWindowRefreshCallback(w, glfw_window_refresh_callback);
 }
 
 void setup(void) {
 }
+
 
 int main(void) {
     GLFWwindow* window;
@@ -98,7 +122,7 @@ int main(void) {
         &draw_image_ext,
         &draw_scissor
     );
-    must_resize = true; // <-- Trigger buffers to resize.
+    MUST_RESIZE = true; // <-- Trigger buffers to resize.
 
     wassert(is_path_dir(cstr("/tmp/"), ctx->framearena));
 
@@ -110,10 +134,13 @@ int main(void) {
     long long last_frame_timestamp_ns = 0;
 
     glfwPollEvents();
-    while (!glfwWindowShouldClose(window) && !must_close)
+    while (!glfwWindowShouldClose(window) && !MUST_CLOSE)
     {
         glfwPollEvents();
-        force_ui_redraw = false;
+        {
+            winput_sync_frame(&ui_winput_frame); // TODO: Move me.
+        }
+        FORCE_UI_REDRAW = false;
         FRAME_START_TIME_NS = get_system_ns();
 
         ++ticks;
@@ -125,9 +152,9 @@ int main(void) {
         }
         /*printf("FPS %d\n", fps_calculation);*/
 
-        if (must_resize) {
-            must_resize = false;
-            force_ui_redraw = true;
+        if (MUST_RESIZE) {
+            MUST_RESIZE = false;
+            FORCE_UI_REDRAW = true;
             ctx->window_size = (V2i) {{ int_max(2, ctx->window_size.x), int_max(2, ctx->window_size.y) }};
             int err = x11_ensure_size(ctx->window_size);
             if (err == 0) {
@@ -140,19 +167,21 @@ int main(void) {
             }
         }
 
-        if (must_redraw) {
-            must_redraw ^= 1;
+        if (MUST_REDRAW) {
+            MUST_REDRAW ^= 1;
 
             {
-                draw_all(ctx, force_ui_redraw);
+                draw_all(ctx, FORCE_UI_REDRAW);
             }
 
 
             x11_draw_texture();
         }
 
+        if (mice_pressed(MouseLeft)) {
+            printfd(ANSI_RED"MOUSE LEFT PRESSED");
+        }
         if (kinput_key_pressed(GLFW_KEY_SPACE)) {
-            printfd("Press");
             long start = get_system_ns();
             refresh_listing(ctx);
             long end = get_system_ns();
@@ -172,6 +201,8 @@ int main(void) {
         ctx->framearena = ArenaRoot_get_arena(ctx->framearena_root);
 
         kinput_frame_end();
+        uimouseinput__frame_end();
+        winput_consume_all();
         long long frame_time = (get_system_ns() - FRAME_START_TIME_NS);
         long long time_since_last = get_system_ns() - last_frame_timestamp_ns;
         /*printfd("Frame: Ideal %.4fms, Actual %.4fms, FPS %.2f",*/

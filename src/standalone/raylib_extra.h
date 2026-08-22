@@ -99,21 +99,6 @@ int GetGlyphIndex_woy(Font font, int codepoint) {
     return index;
 }
 
-/* @returns byte cursor. */
-int utf8_visually_nearest(const char *str, int size, int visual_char_count_target) {
-    int count = 0;
-    int codepoint_size = 0;
-    for (int i = 0; i < size;) {
-        if (count >= visual_char_count_target) {
-            return i;
-        }
-        GetCodepointNext_woy(&str[i], &codepoint_size, size-i);
-        i += codepoint_size;
-        ++count;
-    }
-    return size;
-}
-
 /*
  * Extracted from rtext.c
  */
