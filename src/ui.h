@@ -61,6 +61,17 @@ void ui_draw_text(Ctx *ctx, strview_t text, V2i pos) {
     b_draw_text(ctx->font1, text, pos, ctx->font1.font_size, DEFAULT_FG);
 }
 
+bool ui_button(Rect2i rect) {
+    if (Rect2i_collides_V2i(rect, winput_mouse_pos())) {
+        b_draw_rect(rect, BLUE);
+        if (mice_pressed(MouseLeft)) {
+            mice_pressed_consume(MouseLeft);
+            return true;
+        }
+    }
+    return false;
+}
+
 void ui_widget_test (Ctx *ctx, uitree_DrawInfo info) {
     //info.area.height /= 2;
     //info.area.height /= 10;
@@ -80,7 +91,6 @@ void ui_widget_test (Ctx *ctx, uitree_DrawInfo info) {
 }
 
 void ui_widget_header (Ctx *ctx, uitree_DrawInfo info) {
-    printfd("MIMOS");
     int icon_length = ui_line_height(ctx) * 2;
     Rect2i icon_rect = {{ info.area.x, info.area.y, icon_length, icon_length }};
 
@@ -117,7 +127,13 @@ void ui_widget_bookmarks (Ctx *ctx, uitree_DrawInfo info) {
     file_rect.y += *scroll_px;
     for (dyna_foreach(File, iter, ctx->bookmarks)) {
         File *file = iter.ref;
-        ui_draw_text(ctx, File_get_bookmark_alias(*file), file_rect.pos);
+        if (ui_button((Rect2i){.pos=v2i(file_rect.pos.x,file_rect.pos.y+1),.size=v2i(file_rect.width,file_rect.height-1)})) {
+            printfd("Navigating to ...");
+        }
+        Rect2i icon_rect = {{ file_rect.x + CON_PAD, file_rect.y, file_rect.height, file_rect.height }};
+        b_draw_texture(ctx->icon_folder, icon_rect);
+        V2i text_pos = {{ icon_rect.x + icon_rect.width + CON_PAD, file_rect.y }};
+        ui_draw_text(ctx, File_get_bookmark_alias(*file), text_pos);
         file_rect.pos.y += line_height;
     }
     b_draw_end_scissor();
@@ -135,13 +151,8 @@ void draw_all(Ctx *ctx, const bool force_redraw) {
     static bool setup = false;
     if (!setup) { setup = true; uitree_create(t); }
 
-    printfd(ANSI_BLU"FRAME");
-
     {
         uitree_build_start(t, (Rect2i){ .size=ctx->window_size });
-        //b_draw_rect((Rect2i) {.size=ctx->window_size}, BLACK); // Background.
-        //b_draw_rect((Rect2i) {.size=ctx->window_size}, DARKPURPLE); // Background.
-
         uitree_Node widget;
         uitree_Node con_tree = uitree_container_dumb(widget_stack);
         {

@@ -40,6 +40,10 @@ void ctx_load_assets(Ctx *ctx) {
     //ctx->icon1 = load_image(cstr_SL("assets/imgdemox64.png"));
     ctx->icon1 = load_image(cstr_SL("assets/imgdemo3.png"));
     wassert(!wod_error());
+    ctx->icon_folder = load_image(cstr_SL("assets/icon_folder.png"));
+    wassert(!wod_error());
+    ctx->icon_file = load_image(cstr_SL("assets/icon_file.png"));
+    wassert(!wod_error());
 
     wod_file_t file = wod_load_file("./assets/Roboto-Regular.ttf");
     wassert(!wod_error());
@@ -68,10 +72,7 @@ void ctx_load_assets(Ctx *ctx) {
 
 
 void ctx_free(Ctx *ctx) {
-    free_image(ctx->icon1);
     ArenaRoot_free(&ctx->framearena_root);
-    free_font(ctx->font1);
-    free_font(ctx->font_mono);
     strpool_destroy(&ctx->strpool_bookmarks);
     strpool_destroy(&ctx->strpool_explorer);
     strpool_destroy(&ctx->strpool_general);
@@ -82,6 +83,12 @@ void ctx_free(Ctx *ctx) {
     VecFile_free(&ctx->folder_list);
     textbox_free(&ctx->tbox_path);
     textbox_free(&ctx->tbox_search);
+
+    free_image(ctx->icon1);
+    free_image(ctx->icon_folder);
+    free_image(ctx->icon_file);
+    free_font(ctx->font1);
+    free_font(ctx->font_mono);
 }
 
 void free_file(File *file) {

@@ -53,6 +53,8 @@ typedef struct {
     // Codepoint range is inclusive.
     V2i *ranges;
     int ranges_size;
+
+    int ascent;
 } wod_font_t;
 
 struct {
@@ -222,6 +224,15 @@ wod_font_t wod__load_font(Arena scratch, strview_t font_path, int font_size, V2i
         memcpy(font.ranges, ranges, (size_t)range_count * sizeof(V2i));
     }
 
+    // Calculate ascent.
+    {
+        stbtt_fontinfo font_info;
+        stbtt_InitFont(&font_info, (unsigned char*)file.data, stbtt_GetFontOffsetForIndex((unsigned char*)file.data,0));
+        float scale = stbtt_ScaleForPixelHeight(&font_info, (float)font_size);
+        int ascent; stbtt_GetFontVMetrics(&font_info, &ascent,0,0);
+        font.ascent = (int)((float)ascent * scale);
+    }
+
     if ((0)) {
         quit_abort:
         if (bitmap)                { free((void*)bitmap); }
@@ -241,7 +252,9 @@ wod_font_t wod__load_font(Arena scratch, strview_t font_path, int font_size, V2i
         .packed_char_info_size = font.packed_char_info_size,
         .ranges                = font.ranges,
         .ranges_size           = range_count,
+        .ascent                = font.ascent,
     };
+
 }
 
 wod_font_t load_font(Arena scratch, strview_t font_path, int font_size, V2i *ranges, int range_count) {
@@ -329,7 +342,7 @@ void draw_scissor(bool start_end, Rect2i rect) {
 
 void draw_text(const strview_t text, const wod_font_t font, V2i pos, int font_size, int spacing, int textLineSpacing, Color color) {
     int xoffset = 0;
-    int baseline = pos.y + font.font_size;
+    int baseline = pos.y + font.ascent;
 
     char* bytes = (char*)text.data;
     int available_bytes = text.size;

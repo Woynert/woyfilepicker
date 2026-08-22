@@ -38,11 +38,6 @@ typedef struct Ctx {
     Textbox tbox_path;
     Textbox tbox_search;
 
-    // Assets.
-    Image icon1;
-    wod_font_t font1;
-    wod_font_t font_mono;
-
     // Navigation.
     VecFile bookmarks;
     VecFile history_stack;
@@ -51,6 +46,15 @@ typedef struct Ctx {
     strbuf_t *config;
     File default_location;
     int curr_location_cursor;
+
+    // Assets.
+    struct {
+        Image icon1;
+        Image icon_folder;
+        Image icon_file;
+        wod_font_t font1;
+        wod_font_t font_mono;
+    };
 } Ctx;
 
 #endif

@@ -247,7 +247,6 @@ bool dbuf_do_buffers_differ(void) {
 void dbuf_draw_start(void) {
     // Swap.
     dbuf__ctx.curr = dbuf__ctx.curr == &dbuf__ctx.swap[0] ? &dbuf__ctx.swap[1] : &dbuf__ctx.swap[0];
-    printfd(ANSI_GRE"GONNA BE USING buffer N=%d ", dbuf__ctx.curr == &dbuf__ctx.swap[0] ? 0 : 1);
     for (int i = 0; i < countofi(dbuf__ctx.curr->layers); ++i) {
         dbuf_layer_t *layer = &dbuf__ctx.curr->layers[i];
         arenady_reset_beginning(&layer->arena);
@@ -361,6 +360,10 @@ void b_draw_end_scissor(void) {
 
 void b_draw_text(DBUF_FONT_T font, const strview_t str, V2i pos, int font_size, Color tint) {
     b_draw_text_ext(font, str, pos, font_size, 0, 0, tint);
+}
+
+void b_draw_texture(DBUF_IMG_T img, Rect2i dest) {
+    b_draw_texture_ext(img, (Rect2i){{0,0,img.size.x,img.size.y}}, dest, v2ii(0), 0, WHITE);
 }
 
 #endif
