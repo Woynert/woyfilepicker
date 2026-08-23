@@ -156,9 +156,8 @@ int file_compare_by_name(const void *p1, const void *p2) {
     return strncasecmp(alias1.data, alias2.data, (size_t)int_min(alias1.size, alias2.size));
 }
 
-typedef int (*qsort_compare_func_t) (const void *, const void *);
 void generate_sorted_display_file_list(Ctx *ctx) {
-
+    typedef int (*qsort_compare_func_t) (const void *, const void *);
     qsort_compare_func_t compare_fun = file_compare_by_name;
     switch (ctx->file_sort) {
         case FILE_SORT_NAME: { compare_fun = file_compare_by_name; break; }
@@ -191,11 +190,11 @@ void generate_sorted_display_file_list(Ctx *ctx) {
 }
 
 void refresh_listing(Ctx *ctx) {
-    // Get current path from stack.
     // @Note. No need to free files because we can just wipe the entire Strpool.
     //        So don't do: ```for file in files: free(file)```
     strpool_clear(&ctx->strpool_explorer);
     VecFile_clear_preserving(&ctx->folder_files);
+    // Get current path from stack.
     int err;
     strview_t dir_path = File_get_path(ctx_get_curr_dir(ctx));
     if (!strview_is_valid(dir_path)) { printferr("Invalid dir_path "PRIstrw, PRIstrarg(dir_path)); return; }

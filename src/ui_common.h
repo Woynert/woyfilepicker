@@ -27,6 +27,126 @@ void ui__calculate_fancy_scroll_px(
 }
 
 
+/// @Param x_or_y: True is X (Horizontal), False is Y (Vertical).
+/// @Param minimum_gap_px: Minimum gap between drags.
+/// @Param maximum_px: Maximum value a gap can go.
+/// @Param handle_gap_px: width or height of gap for the mouse to collide with.
+void ui__calculate_multiple_drag_px(
+        int *is_dragging_handle_idx, Rect2i area,
+        int drag_count, float* drag_progress_px,
+        int minimum_gap_px, int maximum_px, int handle_gap_px, bool x_or_y
+) {
+    // 0 -> Not dragging, [1 ... drag_count ] -> Dragging.
+    bool is_dragging = int_in_range_inclusive(0, drag_count-1, *is_dragging_handle_idx-1);
+    if (!is_dragging) {
+        for (int i = 0; i < drag_count; ++i) {
+            int progress_px = (int)drag_progress_px[i];
+            Rect2i drag_area = x_or_y ? (Rect2i){{
+                area.x + progress_px - handle_gap_px/2, area.y,
+                handle_gap_px, area.height
+            }} : (Rect2i){{
+                area.y, area.y + progress_px - handle_gap_px/2,
+                area.width, handle_gap_px
+            }};
+            if (Rect2i_collides_V2i(drag_area, winput_mouse_pos())) {
+                b_draw_rect(drag_area, YELLOW);
+                if (mice_pressed(MouseLeft)) {
+                    mice_consume(MouseLeft);
+                    is_dragging = true;
+                    *is_dragging_handle_idx = i+1;
+                    break;
+                }
+            }
+        }
+    }
+    if (is_dragging) {
+        int drag_id = *is_dragging_handle_idx-1; // Because zero is reserved.
+        int min_px = minimum_gap_px + (drag_id <= 0 ? 0 : (int)drag_progress_px[drag_id -1]);
+        int max_px = - minimum_gap_px + (drag_id >= drag_count-1 ? maximum_px : (int)drag_progress_px[drag_id +1]);
+        int mouse_px = - handle_gap_px/2 + (x_or_y ? winput_mouse_pos().x : winput_mouse_pos().y);
+        drag_progress_px[drag_id] = (float)int_clamp(min_px, max_px, mouse_px - (x_or_y ? area.x : area.y));
+    }
+    if (mice_released(MouseLeft)) {
+        *is_dragging_handle_idx = 0;
+    }
+}
+
+/// @Note see ui__calculate_multiple_drag_px for param info.
+void ui__calculate_multiple_drag_percent(
+        int *is_dragging_handle_idx, Rect2i area,
+        int drag_count, float* drag_progress,
+        float minimum_gap_percent, int maximum_px, int handle_gap_px, bool x_or_y
+) {
+    // 0 -> Not dragging, [1 ... drag_count ] -> Dragging.
+    bool is_dragging = int_in_range_inclusive(0, drag_count-1, *is_dragging_handle_idx-1);
+    if (!is_dragging && mice_pressed(MouseLeft)) {
+        for (int i = 0; i < drag_count; ++i) {
+            float progress = drag_progress[i];
+            Rect2i drag_area = x_or_y ? (Rect2i){{
+                area.x + (int)(progress * (float)area.width) - handle_gap_px/2, area.y,
+                handle_gap_px, area.height
+            }} : (Rect2i){{
+                area.y, area.y + (int)(progress * (float)area.height) - handle_gap_px/2,
+                area.width, handle_gap_px
+            }};
+            if (Rect2i_collides_V2i(drag_area, winput_mouse_pos())) {
+                is_dragging = true;
+                *is_dragging_handle_idx = i+1;
+                break;
+            }
+        }
+    }
+    if (is_dragging) {
+        int drag_id = *is_dragging_handle_idx-1; // Because zero is reserved.
+        float area_start = (float)(x_or_y ? area.x : area.y);
+        float area_length = (float)(x_or_y ? area.width : area.height);
+        float maximum_percent = (float)maximum_px/area_length;
+        float min_perc = minimum_gap_percent + ((drag_id <= 0) ? 0 : drag_progress[drag_id -1]);
+        float max_perc = (drag_id >= drag_count-1) ? maximum_percent : drag_progress[drag_id +1] - minimum_gap_percent;
+        float mouse_px = (float)(x_or_y ? winput_mouse_pos().x : winput_mouse_pos().y);
+        drag_progress[drag_id] = float_clamp(min_perc, max_perc, (mouse_px - area_start)/area_length);
+    }
+    if (mice_released(MouseLeft)) {
+        *is_dragging_handle_idx = 0;
+    }
+}
+
+/*
+void ui__calculate_multiple_draw(
+        int *is_dragging_handle_idx, Rect2i area, int drag_count,
+        MultipleDrag* drags, int handle_gap_px, bool x_or_y
+) {
+    // 0 -> Not dragging, [1 ... drag_count ] -> Dragging.
+    enum { NOT_DRAGGING };
+    bool is_dragging = int_in_range_inclusive(1, drag_count, *is_dragging_handle_idx);
+    if (!is_dragging && mice_pressed(MouseLeft)) {
+        for (int i = 0; i < drag_count; ++i) {
+            MultipleDrag* drag = &drags[i];
+            Rect2i drag_area = x_or_y ? (Rect2i){{
+                area.x + drag->progress_px - handle_gap_px/2, area.y,
+                handle_gap_px, area.height
+            }} : (Rect2i){{
+                area.y, area.y + drag->progress_px - handle_gap_px/2,
+                area.width, handle_gap_px
+            }};
+            if (Rect2i_collides_V2i(drag_area, winput_mouse_pos())) {
+                is_dragging = true;
+                *is_dragging_handle_idx = i+1;
+                break;
+            }
+        }
+    }
+    if (is_dragging) {
+        int mouse_pos = x_or_y ? winput_mouse_pos().x : winput_mouse_pos().y;
+        MultipleDrag* drag = &drags[*is_dragging_handle_idx];
+        drag->progress_px = int_clamp(drag->min_px, drag->max_px, mouse_pos - (x_or_y ? area.x : area.y));
+    }
+    if (mice_released(MouseLeft)) {
+        *is_dragging_handle_idx = NOT_DRAGGING;
+    }
+}
+   */
+
 void widget_stack(Rect2i area, int child_count, Rect2i *children, void *user_ctx, uitree_WidgetState *state) {
     (void)user_ctx, (void)state;
     for (int i = 0; i < child_count; ++i) { children[i] = area; }
@@ -178,6 +298,33 @@ void ui_widget_vsplit_drag(Ctx *ctx, uitree_DrawInfo info) {
 }
 
 void ui_widget_hsplit_drag(Ctx *ctx, uitree_DrawInfo info) {
+    /*
+typedef struct widget_2split_state_t {
+    float *size;
+    int *is_percentage_or_px;
+    int *is_dragging;
+    int *pad;                // px
+    int *gap;                // px
+    Rect2i *drag_area;
+} widget_2split_state_t;
+       */
+    (void)ctx;
+    Rect2i area = info.area;
+    widget_2split_state_t vars = widget_2split_get_state(info.state);
+    if (*vars.is_percentage_or_px) {
+        //ui__cal
+        ui__calculate_multiple_drag_px(
+            vars.is_dragging, info.area, 1, vars.size, 30, info.area.width, *vars.gap, true);
+    } else {
+        //ui__calculate_multiple_drag_px(
+            //vars.is_dragging, info.area, 1, vars.size, *vars.gap, info.area.width, *vars.gap * 2, true);
+    }
+    //ui__calculate_multiple_drag_percent
+
+}
+
+/*
+void ui_widget_hsplit_drag(Ctx *ctx, uitree_DrawInfo info) {
     (void)ctx;
     Rect2i area = info.area;
     widget_2split_state_t vars = widget_2split_get_state(info.state);
@@ -202,6 +349,7 @@ void ui_widget_hsplit_drag(Ctx *ctx, uitree_DrawInfo info) {
         if (mice_released(MouseLeft)) { *vars.is_dragging = false; }
     }
 }
+   */
 
 typedef struct widget_3split_state_t {
     int *is_setup;
@@ -290,7 +438,7 @@ void ui_widget_3hsplit_drag(Ctx *ctx, uitree_DrawInfo info) {
         *vars.percentage2 = 0.66f;
     }
 
-    if (*vars.percentage2 == 0) { *vars.percentage2 = 50; }
+    //if (*vars.percentage2 == 0) { *vars.percentage2 = 50; }
 
     if (mice_in_rect(*vars.drag_area1) || (*vars.is_dragging == IS_DRAGGING_1ND)) {
         b_draw_rect(*vars.drag_area1, BLUE);
