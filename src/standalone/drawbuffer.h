@@ -2,7 +2,7 @@
 #include "state.h"
 #define DBUF_IMG_T  Image
 #define DBUF_FONT_T wod_font_t
-#define DBUF__DEBUG
+//#define DBUF__DEBUG
 // [!NOT PART OF HEADER]
 
 /*
@@ -265,15 +265,11 @@ void dbuf_draw_end(void) {
                 {
                     dbuf_draw_rect_args_t *args = arenady_new(&layer->arena, dbuf_draw_rect_args_t, 1);
                     dbuf__ctx.draw_rect_cb(args->r, args->color);
-                    printfd("DRAWCMD_RECT");
-                    dbuf__print_binary(args, sizeof(dbuf_draw_rect_args_t));
                 } break;
                 case DRAWCMD_FRAME:
                 {
                     dbuf_draw_frame_args_t *args = arenady_new(&layer->arena, dbuf_draw_frame_args_t, 1);
                     dbuf__ctx.draw_frame_cb(args->r, args->color, args->thickness);
-                    printfd("DRAWCMD_FRAME");
-                    dbuf__print_binary(args, sizeof(dbuf_draw_frame_args_t));
                 } break;
                 case DRAWCMD_TEXT:
                 {

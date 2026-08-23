@@ -117,12 +117,18 @@ void ui_widget_header (Ctx *ctx, uitree_DrawInfo info) {
 
 void ui_widget_bookmarks (Ctx *ctx, uitree_DrawInfo info) {
     b_draw_frame(info.area, BLUE, 1);
-    b_draw_begin_scissor(info.area);
     int line_height = ui_line_height(ctx);
     int *scroll_px = &info.state->int_a;
     float *vel_px = &info.state->float_a;
     Rect2i file_rect = {{ info.area.x, info.area.y, info.area.width, line_height }};
+
+    ui_draw_text(ctx, cstr_SL("Places"), v2i(file_rect.x + CON_PAD, file_rect.y));
+    file_rect.pos.y += line_height;
+
     ui__calculate_fancy_scroll_px(scroll_px, vel_px, info.area.height, ctx->bookmarks.size * file_rect.height, mice_wheel());
+    Rect2i scissor_rect = {{info.area.x, file_rect.pos.y, info.area.width, info.area.height -  file_rect.height}};
+    b_draw_begin_scissor(scissor_rect);
+
     if (vel_px != 0) { MUST_REDRAW = true; }
     file_rect.y += *scroll_px;
     for (dyna_foreach(File, iter, ctx->bookmarks)) {
@@ -137,6 +143,10 @@ void ui_widget_bookmarks (Ctx *ctx, uitree_DrawInfo info) {
         file_rect.pos.y += line_height;
     }
     b_draw_end_scissor();
+
+    if (*scroll_px) { // Draw separator.
+        b_draw_rect((Rect2i){{scissor_rect.x,scissor_rect.y,scissor_rect.width,1}}, YELLOW);
+    }
 }
 
 void ui_widget_explorer (Ctx *ctx, uitree_DrawInfo info) {
@@ -164,7 +174,7 @@ void draw_all(Ctx *ctx, const bool force_redraw) {
             }
             {
                 uitree_Node con_hsplit = uitree_container(t, cstr_SL("hsplit"), widget_hsplit, UI_WIDGET_HSPLIT_DRAG);
-                widget_2split_set_user_default_state(t, &con_hsplit, ui_line_height(ctx) * 2, true, CON_PAD*2, 1);
+                widget_2split_set_user_default_state(t, &con_hsplit, ui_line_height(ctx) * 8, true, CON_PAD*2, 1);
                 {
                     {
                         widget = uitree_widget_id(t, UI_WIDGET_BOOKMARKS, cstr_SL("bookmarks"));

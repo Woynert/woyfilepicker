@@ -32,7 +32,7 @@ void ctx_init(Ctx *ctx) {
     ctx->config = strbuf_create(0, NULL);
     ctx->bookmarks = VecFile_create();
     ctx->history_stack = VecFile_create();
-    ctx->folder_list = VecFile_create();
+    ctx->folder_files = VecFile_create();
     ctx_get_env_vars(ctx);
 }
 
@@ -80,7 +80,7 @@ void ctx_free(Ctx *ctx) {
     strbuf_destroy(&ctx->config);
     VecFile_free(&ctx->bookmarks);
     VecFile_free(&ctx->history_stack);
-    VecFile_free(&ctx->folder_list);
+    VecFile_free(&ctx->folder_files);
     textbox_free(&ctx->tbox_path);
     textbox_free(&ctx->tbox_search);
 
@@ -111,6 +111,7 @@ void File_set_alias(File *file, strview_t alias) {
     }
 }
 
+/// @Note: No need to call free_file on failure.
 /// @Returns error.
 int make_file(Arena scratch, File *out_file, strview_t path, Strpool *strpool) {
     File file = { .strpool = strpool };
@@ -119,6 +120,7 @@ int make_file(Arena scratch, File *out_file, strview_t path, Strpool *strpool) {
         struct stat path_stat;
         if (stat(path_buf->cstr, &path_stat) != 0) { return -1; }
         struct tm *mod_date = localtime(&path_stat.st_mtime);
+        file.mod_date_secs_epoc = path_stat.st_mtime;
         file.mod_date = *mod_date;
         file.is_dir = path_stat.st_mode & __S_IFDIR;
     }
@@ -137,6 +139,7 @@ int make_file2(Arena scratch, File *out_file, strview_t path, Strpool *strpool) 
         struct stat path_stat;
         if (stat(path_buf->cstr, &path_stat) != 0) { return -1; }
         struct tm *mod_date = localtime(&path_stat.st_mtime);
+        file.mod_date_secs_epoc = path_stat.st_mtime;
         file.mod_date = *mod_date;
         file.is_dir = path_stat.st_mode & __S_IFDIR;
     }

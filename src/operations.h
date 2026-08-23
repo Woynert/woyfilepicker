@@ -81,6 +81,13 @@ void update_bookmarks(Ctx *ctx) {
     parse_gtk_bookmarks(ctx, SC(&ctx->framearena, strview(ctx->config), cstr_SL("/gtk-3.0/bookmarks")));
     parse_gtk_bookmarks(ctx, SC(&ctx->framearena, strview(ctx->config), cstr_SL("/gtk-4.0/bookmarks")));
     parse_user_dirs_dirs(ctx);
+    do {
+        // Add file system root.
+        File bookmark_root; int err = make_file(ctx->framearena, &bookmark_root, cstr_SL("/"), &ctx->strpool_bookmarks);
+        if (err != 0) { break; }
+        File_set_alias(&bookmark_root, cstr_SL("File System"));
+        VecFile_append(&ctx->bookmarks, bookmark_root);
+    } while (0);
     for (dyna_foreach(File, iter, ctx->bookmarks)) {
         File *file = iter.ref;
         printfd("Bookmark "PRIstrw ANSI_BLU" Alias "PRIstrw,
@@ -112,11 +119,75 @@ void debug_print_history_stack(Ctx *ctx) {
 void debug_print_listing(Ctx *ctx) {
     strview_t dir_path = File_get_path_copy(ctx_get_curr_dir(ctx), &ctx->framearena);
     printfd("YOU ARE IN ["PRIstrw"]", PRIstrarg(dir_path));
-    for (dyna_foreach(File, iter, ctx->folder_list)) {
+    for (dyna_foreach(File, iter, ctx->folder_files)) {
         printfd(ANSI_RED PRIstrw, PRIstrarg(File_get_path(*iter.ref)));
     }
     printfd("YOU ARE IN ["PRIstrw"]", PRIstrarg(dir_path));
     debug_print_history_stack(ctx);
+}
+
+void set_file_sort(Ctx *ctx, FileSort sort) {
+    ctx->file_sort = sort;
+    ctx->inverted = false;
+}
+
+void toggle_invert_file_sort(Ctx *ctx) {
+    ctx->inverted = !ctx->inverted;
+}
+
+
+int file_compare_by_dir(const void *p1, const void *p2) {
+    (void)p1;
+    const File *file2 = (File*)p2;
+    return file2->is_dir;
+}
+
+int file_compare_by_date(const void *p1, const void *p2) {
+    const File *file1 = (File*)p1;
+    const File *file2 = (File*)p2;
+    return file1->mod_date_secs_epoc > file2->mod_date_secs_epoc;
+}
+
+int file_compare_by_name(const void *p1, const void *p2) {
+    const File *file1 = (File*)p1;
+    const File *file2 = (File*)p2;
+    strview_t alias1 = File_get_bookmark_alias(*file1);
+    strview_t alias2 = File_get_bookmark_alias(*file2);
+    return strncasecmp(alias1.data, alias2.data, (size_t)int_min(alias1.size, alias2.size));
+}
+
+typedef int (*qsort_compare_func_t) (const void *, const void *);
+void generate_sorted_display_file_list(Ctx *ctx) {
+
+    qsort_compare_func_t compare_fun = file_compare_by_name;
+    switch (ctx->file_sort) {
+        case FILE_SORT_NAME: { compare_fun = file_compare_by_name; break; }
+        case FILE_SORT_DATE: { compare_fun = file_compare_by_date; break; }
+        default: wassert(false);
+    }
+
+    ctx->first_file_idx = int_clamp(0, ctx->folder_files.size, ctx->first_file_idx);
+    qsort(ctx->folder_files.items,
+            (size_t)ctx->first_file_idx,
+            sizeof(ctx->folder_files.items[0]),
+            compare_fun);
+    qsort(ctx->folder_files.items + ctx->first_file_idx,
+            (size_t)(ctx->folder_files.size - ctx->first_file_idx),
+            sizeof(ctx->folder_files.items[0]),
+            compare_fun);
+
+    // DELME
+    for (dyna_foreach(File, iter, ctx->folder_files)) {
+        printfd("sorted %d (%ld)("Bool_Fmt") = %d/%d/%d %d:%d"PRIstrw, iter.index, iter.ref->mod_date_secs_epoc,
+            Bool_Arg(iter.ref->is_dir),
+            iter.ref->mod_date.tm_year + 1900,
+            iter.ref->mod_date.tm_mon,
+            iter.ref->mod_date.tm_mday,
+            iter.ref->mod_date.tm_hour,
+            iter.ref->mod_date.tm_min,
+            PRIstrarg(File_get_path(*iter.ref)));
+    }
+    // !DELME
 }
 
 void refresh_listing(Ctx *ctx) {
@@ -124,7 +195,7 @@ void refresh_listing(Ctx *ctx) {
     // @Note. No need to free files because we can just wipe the entire Strpool.
     //        So don't do: ```for file in files: free(file)```
     strpool_clear(&ctx->strpool_explorer);
-    VecFile_clear_preserving(&ctx->folder_list);
+    VecFile_clear_preserving(&ctx->folder_files);
     int err;
     strview_t dir_path = File_get_path(ctx_get_curr_dir(ctx));
     if (!strview_is_valid(dir_path)) { printferr("Invalid dir_path "PRIstrw, PRIstrarg(dir_path)); return; }
@@ -142,10 +213,24 @@ void refresh_listing(Ctx *ctx) {
         File file; err = make_file2(ctx->framearena, &file, file_path, &ctx->strpool_explorer);
         // Pretty fast already but can be optimized further.
         if (err != 0) { continue; }
-        VecFile_append(&ctx->folder_list, file);
+        VecFile_append(&ctx->folder_files, file);
     }
     closedir(dir);
     ctx->framearena = arena_bk;
+
+    // Sort so that folders appear at the top.
+    qsort(ctx->folder_files.items,
+            (size_t)ctx->folder_files.size,
+            sizeof(ctx->folder_files.items[0]),
+            file_compare_by_dir);
+
+    // Find separator where folders end.
+    for(dyna_foreach(File, iter, ctx->folder_files)) {
+        if (!iter.ref->is_dir) { ctx->first_file_idx = iter.index; break; }
+    }
+
+    set_file_sort(ctx, FILE_SORT_NAME);
+    generate_sorted_display_file_list(ctx); // MOVEME.
 }
 
 void invert_array_items_in_range_inclusive(File *items, int from, int to) {

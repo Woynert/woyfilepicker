@@ -18,6 +18,7 @@ typedef struct File {
     StrpoolId path;
     bool is_dir;
     struct tm mod_date;
+    long mod_date_secs_epoc;
     StrpoolId bookmark_alias;
     Strpool *strpool;
 } File;
@@ -25,6 +26,11 @@ typedef struct File {
 #define DYNA__TYPE File
 #define DYNA__NAMESPACE VecFile
 #include "da.h"
+
+typedef enum {
+    FILE_SORT_NAME,
+    FILE_SORT_DATE,
+} FileSort;
 
 typedef struct Ctx {
     ArenaRoot framearena_root;
@@ -39,13 +45,18 @@ typedef struct Ctx {
     Textbox tbox_search;
 
     // Navigation.
-    VecFile bookmarks;
-    VecFile history_stack;
-    VecFile folder_list;
     strbuf_t *home;
     strbuf_t *config;
     File default_location;
     int curr_location_cursor;
+    VecFile bookmarks;
+    VecFile history_stack;
+    VecFile folder_files;
+    int first_file_idx; // First file in ctx.folder_files.
+
+    // Explorer display
+    FileSort file_sort;
+    bool inverted;
 
     // Assets.
     struct {
