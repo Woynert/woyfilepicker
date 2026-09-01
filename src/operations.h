@@ -174,19 +174,6 @@ void generate_sorted_display_file_list(Ctx *ctx) {
             (size_t)(ctx->folder_files.size - ctx->first_file_idx),
             sizeof(ctx->folder_files.items[0]),
             compare_fun);
-
-    // DELME
-    for (dyna_foreach(File, iter, ctx->folder_files)) {
-        printfd("sorted %d (%ld)("Bool_Fmt") = %d/%d/%d %d:%d"PRIstrw, iter.index, iter.ref->mod_date_secs_epoc,
-            Bool_Arg(iter.ref->is_dir),
-            iter.ref->mod_date.tm_year + 1900,
-            iter.ref->mod_date.tm_mon,
-            iter.ref->mod_date.tm_mday,
-            iter.ref->mod_date.tm_hour,
-            iter.ref->mod_date.tm_min,
-            PRIstrarg(File_get_path(*iter.ref)));
-    }
-    // !DELME
 }
 
 void refresh_listing(Ctx *ctx) {
@@ -201,6 +188,7 @@ void refresh_listing(Ctx *ctx) {
     strbuf_t *path_buf = strbuf_create_with_arena(dir_path, &ctx->framearena);
     if (path_buf->cstr[path_buf->size-1] != '/') { strbuf_append_cstr(&path_buf, "/"); }
     DIR *dir = opendir(path_buf->cstr);
+    if (!dir) { printferr("Can't opendir [%s]", path_buf->cstr); return; }
     struct dirent *entry;
     Arena arena_bk = ctx->framearena;
     while ((entry = readdir(dir)) != NULL) {
@@ -243,8 +231,17 @@ void invert_array_items_in_range_inclusive(File *items, int from, int to) {
 void add_location(Ctx *ctx, const strview_t arg_file_path) {
     int err;
     strview_t file_path = SC(&ctx->framearena, arg_file_path);
-    File new_dir; err = make_file(ctx->framearena, &new_dir, file_path, &ctx->strpool_general);
-    if (err != 0) { printferr("Invalid location ["PRIstrw"]", PRIstrarg(file_path)); return; }
+    File location; err = make_file(ctx->framearena, &location, file_path, &ctx->strpool_general);
+    if (err != 0) {
+        printferr("Invalid location ["PRIstrw"]", PRIstrarg(file_path)); return;
+    }
+    if (!location.is_dir) {
+        printferr("Invalid location ["PRIstrw"]. Not a directory.", PRIstrarg(file_path));
+        free_file(&location);
+        return;
+    }
+    printfd("Navigating to file ["PRIstrw"]", PRIstrarg(File_get_path(location)));
+
     if (ctx->curr_location_cursor != 0) { do {
         int curr_idx = ctx_get_history_stack_idx(ctx, ctx->curr_location_cursor);
         invert_array_items_in_range_inclusive(ctx->history_stack.items, curr_idx+1, ctx->history_stack.size-1);
@@ -253,7 +250,7 @@ void add_location(Ctx *ctx, const strview_t arg_file_path) {
         if (err != 0) { break; }
         VecFile_append(&ctx->history_stack, current);
     } while(0); }
-    VecFile_append(&ctx->history_stack, new_dir);
+    VecFile_append(&ctx->history_stack, location);
     ctx->curr_location_cursor = 0;
 
     // Remove contiguous duplicates.
@@ -264,7 +261,9 @@ void add_location(Ctx *ctx, const strview_t arg_file_path) {
         if (strview_equal(path, file_path)) {
             File out;
             err = VecFile_pop_at_preserve_order(&ctx->history_stack, iter.index, &out);
-            if (err == 0) { free_file(&out); }
+            if (err == 0) {
+                free_file(&out);
+            }
         } else {
             path = file_path;
         }

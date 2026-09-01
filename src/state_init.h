@@ -98,10 +98,13 @@ void free_file(File *file) {
 }
 
 void File_set_alias(File *file, strview_t alias) {
-    strview_t prev_alias = strpool_get(file->strpool, file->bookmark_alias);
-    if (strview_is_valid(prev_alias)) {
-        wassert(0 == strpool_remove(file->strpool, file->bookmark_alias));
-        file->bookmark_alias = 0;
+    if (file->path != file->bookmark_alias) {
+        // Clean up old alias.
+        strview_t prev_alias = strpool_get(file->strpool, file->bookmark_alias);
+        if (strview_is_valid(prev_alias)) {
+            wassert(0 == strpool_remove(file->strpool, file->bookmark_alias));
+            file->bookmark_alias = 0;
+        }
     }
     alias = strview_trim_whitespace(alias);
     if (!strview_is_empty(alias)) {

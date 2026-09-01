@@ -4,6 +4,7 @@
 #include "drawbuffer.h"
 #include "la_extra.h"
 #include "la.h"
+#include "operations.h"
 #include "portable_utils.h"
 #include "state_init.h"
 #include "uitree.h"
@@ -134,7 +135,9 @@ void ui_widget_bookmarks (Ctx *ctx, uitree_DrawInfo info) {
     for (dyna_foreach(File, iter, ctx->bookmarks)) {
         File *file = iter.ref;
         if (ui_button((Rect2i){.pos=v2i(file_rect.pos.x,file_rect.pos.y+1),.size=v2i(file_rect.width,file_rect.height-1)})) {
-            printfd("Navigating to ...");
+            printfd("Navigating to ["PRIstrw"]", PRIstrarg(File_get_path(*file)));
+            add_location2(ctx, *file);
+            refresh_listing(ctx);
         }
         Rect2i icon_rect = {{ file_rect.x + CON_PAD, file_rect.y, file_rect.height, file_rect.height }};
         b_draw_texture(ctx->icon_folder, icon_rect);
