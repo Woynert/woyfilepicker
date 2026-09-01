@@ -38,12 +38,13 @@ void ctx_init(Ctx *ctx) {
 
 void ctx_load_assets(Ctx *ctx) {
     //ctx->icon1 = load_image(cstr_SL("assets/imgdemox64.png"));
-    ctx->icon1 = load_image(cstr_SL("assets/imgdemo3.png"));
-    wassert(!wod_error());
-    ctx->icon_folder = load_image(cstr_SL("assets/icon_folder.png"));
-    wassert(!wod_error());
-    ctx->icon_file = load_image(cstr_SL("assets/icon_file.png"));
-    wassert(!wod_error());
+    ctx->icon1 = load_image(cstr_SL("assets/imgdemo3.png")); wassert(!wod_error());
+    ctx->icon_folder = load_image(cstr_SL("assets/icon_folder.png")); wassert(!wod_error());
+    ctx->icon_file = load_image(cstr_SL("assets/icon_file.png")); wassert(!wod_error());
+    ctx->icon_up = load_image(cstr_SL("assets/icon_arrow_up.png")); wassert(!wod_error());
+    ctx->icon_left = load_image(cstr_SL("assets/icon_arrow_left.png")); wassert(!wod_error());
+    ctx->icon_right = load_image(cstr_SL("assets/icon_arrow_right.png")); wassert(!wod_error());
+    ctx->icon_search = load_image(cstr_SL("assets/icon_magniglass.png")); wassert(!wod_error());
 
     wod_file_t file = wod_load_file("./assets/Roboto-Regular.ttf");
     wassert(!wod_error());
@@ -84,11 +85,15 @@ void ctx_free(Ctx *ctx) {
     textbox_free(&ctx->tbox_path);
     textbox_free(&ctx->tbox_search);
 
+    free_font(ctx->font1);
+    free_font(ctx->font_mono);
     free_image(ctx->icon1);
     free_image(ctx->icon_folder);
     free_image(ctx->icon_file);
-    free_font(ctx->font1);
-    free_font(ctx->font_mono);
+    free_image(ctx->icon_up);
+    free_image(ctx->icon_left);
+    free_image(ctx->icon_right);
+    free_image(ctx->icon_search);
 }
 
 void free_file(File *file) {

@@ -60,11 +60,15 @@ typedef struct Ctx {
 
     // Assets.
     struct {
+        wod_font_t font1;
+        wod_font_t font_mono;
         Image icon1;
         Image icon_folder;
         Image icon_file;
-        wod_font_t font1;
-        wod_font_t font_mono;
+        Image icon_up;
+        Image icon_left;
+        Image icon_right;
+        Image icon_search;
     };
 } Ctx;
 

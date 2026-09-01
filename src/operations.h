@@ -274,6 +274,9 @@ void add_location2(Ctx *ctx, const File file) {
     add_location(ctx, File_get_path(file));
 }
 
+bool can_navigate_forward(Ctx *ctx) { return ctx->curr_location_cursor > 0; }
+bool can_navigate_backwards(Ctx *ctx) { return ctx->curr_location_cursor < ctx->history_stack.size-1; }
+
 void navigate_forward(Ctx *ctx) {
     --ctx->curr_location_cursor;
     ctx->curr_location_cursor = int_clamp(0, ctx->history_stack.size-1, ctx->curr_location_cursor);

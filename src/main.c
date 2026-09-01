@@ -94,7 +94,7 @@ int main(void) {
     V2i initial_win_size = {{ 640, 480 }};
     if (!glfwInit()) { printfd("ERR: Failed to glfwInit."); return -1; }
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    window = glfwCreateWindow(initial_win_size.x, initial_win_size.y, "Hello World", NULL, NULL);
+    window = glfwCreateWindow(initial_win_size.x, initial_win_size.y, "File Explorer", NULL, NULL);
     if (!window) {
         printfd("ERR: Failed to create window.");
         glfwTerminate(); return -1;

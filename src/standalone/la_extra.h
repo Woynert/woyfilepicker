@@ -2,6 +2,7 @@
 #define LA_EXTRA
 
 #include "la.h"
+#include "portable_utils.h"
 #include <stdint.h>
 
 typedef uint32_t u32;
@@ -87,6 +88,13 @@ V2i Rect_fit_in_Rect_and_preserve_aspect_ratio(V2i container, V2i rect) {
         .x = (int)((float)rect.x * scale_factor),
         .y = (int)((float)rect.y * scale_factor),
     }};
+}
+
+Rect2i Rect2i_center(Rect2i container, Rect2i child) {
+    Rect2i res = {{ container.x, container.y, int_min(container.width, child.width), int_min(container.height, child.height) }};
+    res.x += (container.width - res.width)/2;
+    res.y += (container.height - res.height)/2;
+    return res;
 }
 
 

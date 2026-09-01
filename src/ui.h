@@ -92,28 +92,41 @@ void ui_widget_test (Ctx *ctx, uitree_DrawInfo info) {
 }
 
 void ui_widget_header (Ctx *ctx, uitree_DrawInfo info) {
-    int icon_length = ui_line_height(ctx) * 2;
+    const int line_height = ui_line_height(ctx);
+    int icon_length = line_height * 2;
     Rect2i icon_rect = {{ info.area.x, info.area.y, icon_length, icon_length }};
+    Rect2i icon_size = {{ 0,0, 32, 32}};
 
+    if (ui_button(icon_rect)) { navigate_parent_dir(ctx); }
     b_draw_frame(icon_rect, MAGENTA, 1);
-    ui_draw_text(ctx, cstr_SL("^"), icon_rect.pos);
+    //ui_draw_text(ctx, cstr_SL("^"), icon_rect.pos);
+    b_draw_texture(ctx->icon_up, Rect2i_center(icon_rect, icon_size));
 
     icon_rect.x += icon_rect.width + CON_PAD;
+    if (!can_navigate_backwards(ctx)) { b_draw_rect(icon_rect, GRAY); }
+    else if (ui_button(icon_rect)) { navigate_backwards(ctx); }
     b_draw_frame(icon_rect, MAGENTA, 1);
-    ui_draw_text(ctx, cstr_SL("<"), icon_rect.pos);
+    //ui_draw_text(ctx, cstr_SL("<"), icon_rect.pos);
+    b_draw_texture(ctx->icon_left, Rect2i_center(icon_rect, icon_size));
 
     icon_rect.x += icon_rect.width + CON_PAD;
+    if (!can_navigate_forward(ctx)) { b_draw_rect(icon_rect, GRAY); }
+    else if (ui_button(icon_rect)) { navigate_forward(ctx); }
     b_draw_frame(icon_rect, MAGENTA, 1);
-    ui_draw_text(ctx, cstr_SL(">"), icon_rect.pos);
+    //ui_draw_text(ctx, cstr_SL(">"), icon_rect.pos);
+    b_draw_texture(ctx->icon_right, Rect2i_center(icon_rect, icon_size));
 
     icon_rect.x += icon_rect.width + CON_PAD;
+    //if (ui_button(icon_rect)) { navigate_parent_dir(ctx); }
     icon_rect.width = info.area.width - icon_rect.x - icon_rect.width - CON_PAD;
     b_draw_frame(icon_rect, MAGENTA, 1);
 
     icon_rect.x += icon_rect.width + CON_PAD;
+    //if (ui_button(icon_rect)) { navigate_parent_dir(ctx); }
     icon_rect.width = icon_rect.height;
     b_draw_frame(icon_rect, MAGENTA, 1);
-    ui_draw_text(ctx, cstr_SL("search"), icon_rect.pos);
+    //ui_draw_text(ctx, cstr_SL("search"), icon_rect.pos);
+    b_draw_texture(ctx->icon_search, Rect2i_center(icon_rect, icon_size));
 }
 
 void ui_widget_bookmarks (Ctx *ctx, uitree_DrawInfo info) {
@@ -308,8 +321,8 @@ void draw_all(Ctx *ctx, const bool force_redraw) {
         dbuf_draw_end();
         //drawbuf_swap();
         // TODO NONE OF THIS SHOULD BE HERE.
-        draw_rect((Rect2i){.pos=v2i(ctx->window_size.x-50,0),.size=v2i(25,24)}, BLACK);
-        draw_text(SF(&ctx->framearena, "%d", redraw_count), ctx->font1, v2i(ctx->window_size.x-50,0), 10, 0, 0, GREEN);
+        draw_rect((Rect2i){.pos=v2i(ctx->window_size.x-30,ctx->window_size.y-30),.size=v2i(25,24)}, BLACK);
+        draw_text(SF(&ctx->framearena, "%d", redraw_count), ctx->font1, v2i(ctx->window_size.x-30,ctx->window_size.y-30), 10, 0, 0, GREEN);
         rgba_to_bgra((u32*)x11_get_buffer(), (Rect2i){.size=ctx->window_size}, ctx->window_size.x);
         char *buffer = x11_swap_buffer();
         wod_set_buffer((u32*)buffer, ctx->window_size, ctx->window_size.x);
