@@ -150,8 +150,95 @@ void ui_widget_bookmarks (Ctx *ctx, uitree_DrawInfo info) {
 }
 
 void ui_widget_explorer (Ctx *ctx, uitree_DrawInfo info) {
-    b_draw_frame(info.area, BLUE, 1);
+    enum { column_count = 3 };
+    static float columns_drag_px[column_count-1] = { 280, 450 };
+    static int is_dragging_idx = 0;
+    static const strview_t column_names[column_count] = {
+        cstr_SLc("Name"),
+        cstr_SLc("Date"),
+        cstr_SLc("Size"),
+    };
+
+    Rect2i area = info.area;
+    int line_height = ui_line_height(ctx);
+    int item_height = line_height + CON_PAD;
+    b_draw_frame(area, BLUE, 1);
+    Rect2i headers_rect = {{ area.x, area.y, area.width, item_height }};
+    ui__calculate_multiple_drag_px(&is_dragging_idx, headers_rect, column_count-1, (float*)columns_drag_px, 30, area.width, CON_PAD*2, true);
+    b_draw_frame(headers_rect, GREEN, 1);
+
+    Rect2i col_rect[column_count] = { 0 };
+    int x1 = area.x;
+    V2i mouse = winput_mouse_pos();
+
+    for (int i = 0; i < column_count; ++i) {
+        int x2 = area.x + (i < column_count-1 ? (int)columns_drag_px[i] : area.width);
+        col_rect[i] = (Rect2i) {{ x1, area.y, x2 - x1, area.height }};
+        x1 += col_rect[i].width;
+    }
+
+    for (int i = 0; i < column_count-1; ++i) {
+        b_draw_frame(col_rect[i], YELLOW, 1);
+        ui_draw_text(ctx, column_names[i], col_rect[i].pos);
+    }
+
+    Rect2i scroll_rect = {{ area.x, area.y + item_height, area.width, area.height - item_height }};
+    int *scroll_px = &info.state->int_a;
+    float *scroll_vel = &info.state->float_a;
+    ui__calculate_fancy_scroll_px(scroll_px, scroll_vel, scroll_rect.height,
+            (ctx->folder_files.size + 1) * item_height, mice_wheel() *2);
+    b_draw_frame(scroll_rect, RED, 1);
+
+    // @Note(woy): This is to draw only the range of files which are visible:
+    const int file_i_pad = 4;
+    int file_i_start = (-*scroll_px) / item_height - file_i_pad;
+    int file_i_end = file_i_start + scroll_rect.height / item_height + file_i_pad * 2;
+    file_i_start = int_clamp(0, ctx->folder_files.size, file_i_start);
+    file_i_end = int_clamp(0, ctx->folder_files.size, file_i_end);
+
+    {
+        int col_i = 0; // name
+        int row_i = file_i_start;
+        Rect2i column = col_rect[col_i];
+        column.height -= item_height; column.y += item_height;
+        b_draw_begin_scissor(column);
+        for (int i = file_i_start; i < file_i_end; ++i) {
+            File *file = &ctx->folder_files.items[i];
+            ++row_i;
+            V2i pos = {{ col_rect[col_i].pos.x, col_rect[col_i].pos.y + item_height * row_i + *scroll_px }};
+            Rect2i icon_rect = {{ pos.x, pos.y - CON_PAD, item_height, item_height }};
+            pos.x += item_height;
+            Image icon = file->is_dir ? ctx->icon_folder : ctx->icon_file;
+            b_draw_texture(icon, icon_rect);
+            ui_draw_text(ctx, strpool_get(file->strpool, file->bookmark_alias), pos);
+        }
+        b_draw_end_scissor();
+    }
+
+    {
+        int col_i = 1; // date
+        int row_i = file_i_start;
+        Rect2i column = col_rect[col_i];
+        column.height -= item_height; column.y += item_height;
+        b_draw_begin_scissor(column);
+        for (int i = file_i_start; i < file_i_end; ++i) {
+            File *file = &ctx->folder_files.items[i];
+            ++row_i;
+            V2i pos = {{ col_rect[col_i].pos.x, col_rect[col_i].pos.y + item_height * row_i + *scroll_px }};
+            Arena arena = ctx->framearena;
+            ui_draw_text(ctx, SF(&arena, "%02d:%02d %02d/%02d/%04d",
+                file->mod_date.tm_hour,
+                file->mod_date.tm_min,
+                file->mod_date.tm_mday,
+                file->mod_date.tm_mon,
+                file->mod_date.tm_year + 1900),
+                pos
+            );
+        }
+        b_draw_end_scissor();
+    }
 }
+
 
 void draw_all(Ctx *ctx, const bool force_redraw) {
 
