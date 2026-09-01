@@ -78,16 +78,21 @@ void parse_user_dirs_dirs(Ctx *ctx) {
 void update_bookmarks(Ctx *ctx) {
     for (dyna_foreach(File, iter, ctx->bookmarks)) { free_file(iter.ref); }
     VecFile_clear_preserving(&ctx->bookmarks);
+    {
+        // Add user home.
+        int err;
+        File home; err = make_file(ctx->framearena, &home, strview(ctx->home), &ctx->strpool_bookmarks);
+        if (!err) { VecFile_append(&ctx->bookmarks, home); }
+        // Add file system root.
+        File bookmark_root; err = make_file(ctx->framearena, &bookmark_root, cstr_SL("/"), &ctx->strpool_bookmarks);
+        if (!err) {
+            File_set_alias(&bookmark_root, cstr_SL("File System"));
+            VecFile_append(&ctx->bookmarks, bookmark_root);
+        }
+    }
     parse_gtk_bookmarks(ctx, SC(&ctx->framearena, strview(ctx->config), cstr_SL("/gtk-3.0/bookmarks")));
     parse_gtk_bookmarks(ctx, SC(&ctx->framearena, strview(ctx->config), cstr_SL("/gtk-4.0/bookmarks")));
     parse_user_dirs_dirs(ctx);
-    do {
-        // Add file system root.
-        File bookmark_root; int err = make_file(ctx->framearena, &bookmark_root, cstr_SL("/"), &ctx->strpool_bookmarks);
-        if (err != 0) { break; }
-        File_set_alias(&bookmark_root, cstr_SL("File System"));
-        VecFile_append(&ctx->bookmarks, bookmark_root);
-    } while (0);
     for (dyna_foreach(File, iter, ctx->bookmarks)) {
         File *file = iter.ref;
         printfd("Bookmark "PRIstrw ANSI_BLU" Alias "PRIstrw,
@@ -281,14 +286,14 @@ void navigate_forward(Ctx *ctx) {
     --ctx->curr_location_cursor;
     ctx->curr_location_cursor = int_clamp(0, ctx->history_stack.size-1, ctx->curr_location_cursor);
     refresh_listing(ctx);
-    debug_print_listing(ctx);
+    //debug_print_listing(ctx);
 }
 
 void navigate_backwards(Ctx *ctx) {
     ++ctx->curr_location_cursor;
     ctx->curr_location_cursor = int_clamp(0, ctx->history_stack.size-1, ctx->curr_location_cursor);
     refresh_listing(ctx);
-    debug_print_listing(ctx);
+    //debug_print_listing(ctx);
 }
 
 void navigate_parent_dir(Ctx *ctx) {
@@ -303,7 +308,7 @@ void navigate_parent_dir(Ctx *ctx) {
     printfd("Parent is "PRIstrw, PRIstrarg(parent_path));
     add_location(ctx, parent_path);
     refresh_listing(ctx);
-    debug_print_listing(ctx);
+    //debug_print_listing(ctx);
 }
 
 #endif

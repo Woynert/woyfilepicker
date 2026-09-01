@@ -33,7 +33,10 @@ void print_call_stack(void) {
 
 void mice_consume(WinputMice btn) {
     ui_winput_frame.button[btn].pressed = false;
-    ui_mouse_available = ui_winput_frame.button[btn].released;
+    if (btn == MouseLeft) {
+        ui_mouse_available = ui_winput_frame.button[btn].released;
+        // TODO: Make it make sense please.
+    }
     /* ↑↑↑ There is a case when both pressed and released are true on the same
        frame, this happens when the click is fast. This means
        we need to manually make it available again, because the normal way

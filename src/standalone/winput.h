@@ -42,9 +42,12 @@
  */
 
 typedef enum WinputMice {
-    MouseLeft   = GLFW_MOUSE_BUTTON_LEFT,
-    MouseRight  = GLFW_MOUSE_BUTTON_RIGHT,
-    MouseMiddle = GLFW_MOUSE_BUTTON_MIDDLE,
+    MouseLeft,
+    MouseRight,
+    MouseMiddle,
+    MouseNavBack,
+    MouseNavForward,
+    WINPUT_MOUSE_LAST
 } WinputMice;
 
 
@@ -54,7 +57,7 @@ typedef struct WinputFrame {
         bool held;
         bool released;
         bool ignore_next_release;
-    } button[MouseMiddle+1];
+    } button[WINPUT_MOUSE_LAST];
     float wheel_x;
     float wheel_y;
     V2i mouse_pos;
@@ -77,10 +80,14 @@ void winput_glfw_mouse_button_callback(GLFWwindow* w, int button, int action, in
 {
     (void)w; (void)mods;
     int local_button;
-    if      (button == GLFW_MOUSE_BUTTON_LEFT)   { local_button = MouseLeft; }
-    else if (button == GLFW_MOUSE_BUTTON_MIDDLE) { local_button = MouseMiddle; }
-    else if (button == GLFW_MOUSE_BUTTON_RIGHT)  { local_button = MouseRight; }
-    else { return; }
+    switch (button) {
+        default: return;
+        case GLFW_MOUSE_BUTTON_LEFT  : local_button = MouseLeft; break;
+        case GLFW_MOUSE_BUTTON_MIDDLE: local_button = MouseMiddle; break;
+        case GLFW_MOUSE_BUTTON_RIGHT : local_button = MouseRight; break;
+        case GLFW_MOUSE_BUTTON_4     : local_button = MouseNavBack; break;
+        case GLFW_MOUSE_BUTTON_5     : local_button = MouseNavForward; break;
+    }
 
     if (action == GLFW_PRESS) {
         winput__state.button[local_button].pressed = true;
@@ -102,7 +109,7 @@ void winput_glfw_mouse_button_callback(GLFWwindow* w, int button, int action, in
 void winput_sync_frame(WinputFrame *frame) {
     frame->wheel_x = winput__state.wheel_x;
     frame->wheel_y = winput__state.wheel_y;
-    for (int i = MouseLeft; i <= MouseMiddle; ++i) {
+    for (int i = MouseLeft; i < WINPUT_MOUSE_LAST; ++i) {
         frame->button[i].pressed  = winput__state.button[i].pressed;
         if (frame->button[i].pressed && frame->button[i].ignore_next_release) {
             frame->button[i].ignore_next_release = false; // TODO: Add a test case for this.
@@ -131,7 +138,7 @@ void winput_glfw_scroll_callback(GLFWwindow* w, double xoffset, double yoffset)
 
 /* @Note. Call at frame end. */
 void winput_consume_all(void) {
-    for (int i = MouseLeft; i <= MouseMiddle; ++i) {
+    for (int i = MouseLeft; i < WINPUT_MOUSE_LAST; ++i) {
         winput__state.button[i].pressed = false;
         if (winput__state.button[i].released) {
             /* Held is reset only when Released was triggered. */
@@ -148,7 +155,7 @@ void winput_consume_all(void) {
 void winput_consume(WinputFrame *frame, WinputMice button, bool trigger_release) {
     (void)trigger_release;
     if (frame == NULL) { frame = &winput__state; }
-    assert(button <= MouseMiddle);
+    assert(button < WINPUT_MOUSE_LAST);
     frame->button[button].pressed             = false;
     //frame->button[button].held                = false;
     //frame->button[button].ignore_next_release = !trigger_release;
@@ -158,17 +165,17 @@ void winput_consume(WinputFrame *frame, WinputMice button, bool trigger_release)
 }
 
 bool winput_frame_mice_pressed(WinputFrame *frame, WinputMice button) {
-    assert(button <= MouseMiddle);
+    assert(button < WINPUT_MOUSE_LAST);
     return frame->button[button].pressed;
 }
 
 bool winput_frame_mice_held(WinputFrame *frame, WinputMice button) {
-    assert(button <= MouseMiddle);
+    assert(button < WINPUT_MOUSE_LAST);
     return frame->button[button].held;
 }
 
 bool winput_frame_mice_released(WinputFrame *frame, WinputMice button) {
-    assert(button <= MouseMiddle);
+    assert(button < WINPUT_MOUSE_LAST);
     return frame->button[button].released;
 }
 

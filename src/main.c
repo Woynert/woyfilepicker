@@ -178,24 +178,23 @@ int main(void) {
             x11_draw_texture();
         }
 
-        if (mice_pressed(MouseLeft)) {
-            printfd(ANSI_RED"MOUSE LEFT PRESSED");
-        }
-        if (kinput_key_pressed(GLFW_KEY_SPACE)) {
-            long start = get_system_ns();
-            refresh_listing(ctx);
-            long end = get_system_ns();
-            debug_print_listing(ctx);
-            printfd(ANSI_MAG"refresh_listing took %f", ((double)end-(double)start)/(1000000000.f));
-        }
-        if (kinput_key_pressed(GLFW_KEY_A)) {
-            navigate_backwards(ctx);
-        }
-        if (kinput_key_pressed(GLFW_KEY_W)) {
-            navigate_parent_dir(ctx);
-        }
-        if (kinput_key_pressed(GLFW_KEY_D)) {
-            navigate_forward(ctx);
+        {
+            // TODO: Move these shortcuts somewhere else.
+            if (kinput_key_pressed(GLFW_KEY_SPACE)) {
+                long start = get_system_ns();
+                refresh_listing(ctx);
+                long end = get_system_ns();
+                debug_print_listing(ctx);
+                printfd(ANSI_MAG"refresh_listing took %f", ((double)end-(double)start)/(1000000000.f));
+            }
+            if (mice_pressed(MouseNavBack)) {
+                mice_consume(MouseNavBack);
+                navigate_backwards(ctx);
+            }
+            else if (mice_pressed(MouseNavForward)) {
+                mice_consume(MouseNavForward);
+                navigate_forward(ctx);
+            }
         }
 
         ctx->framearena = ArenaRoot_get_arena(ctx->framearena_root);

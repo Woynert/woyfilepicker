@@ -14,7 +14,7 @@
 #include "x11back.h"
 
 
-#define DEFAULT_BG GRAY
+#define DEFAULT_BG LIGHTGRAY
 #define DEFAULT_FG BLACK
 #define CON_PAD 2
 
@@ -66,7 +66,7 @@ bool ui_button(Rect2i rect) {
     if (Rect2i_collides_V2i(rect, winput_mouse_pos())) {
         b_draw_rect(rect, BLUE);
         if (mice_pressed(MouseLeft)) {
-            mice_pressed_consume(MouseLeft);
+            mice_consume(MouseLeft);
             return true;
         }
     }
@@ -212,6 +212,34 @@ void ui_widget_explorer (Ctx *ctx, uitree_DrawInfo info) {
     file_i_start = int_clamp(0, ctx->folder_files.size, file_i_start);
     file_i_end = int_clamp(0, ctx->folder_files.size, file_i_end);
 
+    if (Rect2i_collides_V2i(scroll_rect, winput_mouse_pos())) {
+        b_draw_begin_scissor(scroll_rect);
+        // Mouse file hover.
+        int row_i = file_i_start;
+        for (int i = file_i_start; i < file_i_end; ++i, ++row_i) {
+            File *file = &ctx->folder_files.items[i];
+            Rect2i file_select_rect = {{ scroll_rect.x, scroll_rect.y + item_height * row_i + *scroll_px,
+                scroll_rect.width, item_height-1
+            }};
+            if (Rect2i_collides_V2i(file_select_rect, winput_mouse_pos())) {
+                b_draw_rect(file_select_rect, BLUE);
+                if (mice_double_click()) {
+                    mice_consume(MouseLeft);
+                    printfd("DOUBLE CLICK on file %d", i);
+                    add_location2(ctx, *file);
+                    refresh_listing(ctx);
+                    break;
+                }
+                else if (mice_pressed(MouseLeft)) {
+                    mice_consume(MouseLeft);
+                    printfd("Normal click on file %d", i);
+                    break;
+                }
+            }
+        }
+        b_draw_end_scissor();
+    }
+
     {
         int col_i = 0; // name
         int row_i = file_i_start;
@@ -242,12 +270,13 @@ void ui_widget_explorer (Ctx *ctx, uitree_DrawInfo info) {
             ++row_i;
             V2i pos = {{ col_rect[col_i].pos.x, col_rect[col_i].pos.y + item_height * row_i + *scroll_px }};
             Arena arena = ctx->framearena;
-            ui_draw_text(ctx, SF(&arena, "%02d:%02d %02d/%02d/%04d",
-                file->mod_date.tm_hour,
-                file->mod_date.tm_min,
+            ui_draw_text(ctx, SF(&arena, "%02d/%02d/%04d %02d:%02d",
                 file->mod_date.tm_mday,
                 file->mod_date.tm_mon,
-                file->mod_date.tm_year + 1900),
+                file->mod_date.tm_year + 1900,
+                file->mod_date.tm_hour,
+                file->mod_date.tm_min
+                ),
                 pos
             );
         }
@@ -297,7 +326,7 @@ void draw_all(Ctx *ctx, const bool force_redraw) {
     }
 
     dbuf_draw_start();
-    b_draw_rect((Rect2i) {.size=ctx->window_size}, DARKPURPLE); // Background.
+    b_draw_rect((Rect2i) {.size=ctx->window_size}, DEFAULT_BG); // Background.
     //b_draw_rect((Rect2i) {.size=ctx->window_size}, DARKPURPLE); // Background.
 
     int i = -1;
