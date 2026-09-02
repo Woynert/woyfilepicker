@@ -36,8 +36,9 @@ typedef struct {
         char *buffer;
     };
     int cursor;
-    int selection_cursor;
     int scroll;
+    bool is_selecting;
+    int selection_cursor;
 } Textbox;
 
 void textbox__debug_print(Textbox *t) {
@@ -165,49 +166,5 @@ void textbox_add_codepoint(Textbox *t, unsigned int codepoint) {
 }
 
 
-// ↓↓↓ PLATFORM SPECIFIC CODE GOES HERE ↓↓↓
-
-#include <GLFW/glfw3.h>
-#include "la_extra.h"
-#include "drawbuffer.h"
-
-void textbox_glfw_key_callback(Textbox *t, int key, int scancode, int action, int mods) {
-    (void)scancode, (void)mods;
-    if (action == GLFW_PRESS) {
-        switch (key) {
-        case GLFW_KEY_BACKSPACE:
-        {
-            textbox__backspace(t);
-            textbox__debug_print(t);
-            break;
-        }
-        case GLFW_KEY_LEFT:
-        {
-            textbox__cursor_left(t);
-            textbox__debug_print(t);
-            break;
-        }
-        case GLFW_KEY_RIGHT:
-        {
-            textbox__cursor_right(t);
-            textbox__debug_print(t);
-            break;
-        }
-        default: { } }
-    }
-}
-
-
-void textbox_draw(Textbox *t, Rect2i rect) {
-    b_draw_frame(rect, BLACK, 1);
-    //b_draw_text_ext
-}
-
-void textbox_free(Textbox *t) {
-    if (t->buffer) { free(t->buffer); }
-    *t = (Textbox) { 0 };
-}
-
-// ↑↑↑ PLATFORM SPECIFIC CODE  ↑↑↑
 
 #endif

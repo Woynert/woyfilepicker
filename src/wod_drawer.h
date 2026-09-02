@@ -349,7 +349,6 @@ void draw_text(const strview_t text, const wod_font_t font, V2i pos, int font_si
     int codepoint_size = 0;
     int codepoint;
 
-
     bool try_get_callback = true;
     const stbtt_packedchar *cp_info_fallback = NULL;
 
@@ -383,6 +382,36 @@ void draw_text(const strview_t text, const wod_font_t font, V2i pos, int font_si
 
         xoffset += (int)cp_info->xoff2 + spacing;
     }
+}
+
+Rect2i text_measure(const wod_font_t font, const strview_t text, V2i pos, int font_size, int spacing, int textLineSpacing, Color color) {
+    int xoffset = 0;
+    char* bytes = (char*)text.data;
+    int available_bytes = text.size;
+    int codepoint_size = 0;
+    bool try_get_callback = true;
+    const stbtt_packedchar *cp_info_fallback = NULL;
+    while (available_bytes > 0) {
+        int codepoint = GetCodepointNext_woy(bytes, &codepoint_size, available_bytes);
+        available_bytes -= codepoint_size;
+        bytes += codepoint_size;
+        const stbtt_packedchar *cp_info = font_get_codepoint_info(font, codepoint);
+        if (!cp_info) { // ↓↓↓ This feels too noisy, consider just drawing a rectangle instead.
+            if (cp_info_fallback) {
+                cp_info = cp_info_fallback;
+            } else if (try_get_callback) {
+                try_get_callback ^= 1;
+                cp_info_fallback = font_get_codepoint_info(font, 0xFFFD); //'�'
+                if (!try_get_callback) {
+                    cp_info_fallback = font_get_codepoint_info(font, (int)'?');
+                }
+                cp_info = cp_info_fallback;
+            }
+            if (!cp_info) { continue; }
+        }
+        xoffset += (int)cp_info->xoff2 + spacing;
+    }
+    return (Rect2i) {{ 0,0,xoffset,font_size }};
 }
 
 /*

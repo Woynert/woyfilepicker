@@ -23,6 +23,10 @@ typedef struct uitree_WidgetState {
     int int_d;
     float float_a;
     float float_b;
+    float float_c;
+    float float_d;
+    float float_e;
+    float float_f;
     Rect2i rect_a;
     Rect2i rect_b;
     int __last_frame; // Used to determine if we should persist it or forget it.

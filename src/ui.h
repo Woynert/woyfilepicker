@@ -2,6 +2,8 @@
 #define UI_H
 
 #include "drawbuffer.h"
+#include "kinput.h"
+#include "textbox_wrap.h"
 #include "la_extra.h"
 #include "la.h"
 #include "operations.h"
@@ -120,6 +122,10 @@ void ui_widget_header (Ctx *ctx, uitree_DrawInfo info) {
     //if (ui_button(icon_rect)) { navigate_parent_dir(ctx); }
     icon_rect.width = info.area.width - icon_rect.x - icon_rect.width - CON_PAD;
     b_draw_frame(icon_rect, MAGENTA, 1);
+    int *textbox_scroll_px = &info.state->int_a;
+    float *textbox_vel_px = &info.state->float_a;
+    textbox_draw(&ctx->tbox_path, icon_rect, ctx->font1, ctx->font1.font_size,
+            textbox_scroll_px, textbox_vel_px);
 
     icon_rect.x += icon_rect.width + CON_PAD;
     //if (ui_button(icon_rect)) { navigate_parent_dir(ctx); }
@@ -199,11 +205,29 @@ void ui_widget_explorer (Ctx *ctx, uitree_DrawInfo info) {
     }
 
     Rect2i scroll_rect = {{ area.x, area.y + item_height, area.width, area.height - item_height }};
-    int *scroll_px = &info.state->int_a;
-    float *scroll_vel = &info.state->float_a;
-    ui__calculate_fancy_scroll_px(scroll_px, scroll_vel, scroll_rect.height,
-            (ctx->folder_files.size + 1) * item_height, mice_wheel() *2);
+    float *scroll_px_float = &info.state->float_a;
+    {
+        // @Note: Precise scrolling. Abstract me away in a struct please.
+        float *scroll_x0 = &info.state->float_b;
+        float *scroll_v0 = &info.state->float_c;
+        float *scroll_a0 = &info.state->float_d;
+        float *scroll_time = &info.state->float_e;
+        float *scroll_acum_time = &info.state->float_f;
+        bool focus = false;
+        int focus_item_target = 0;
+        if (kinput_key_pressed(GLFW_KEY_S)) { focus = true; focus_item_target = ctx->folder_files.size/2; }
+        if (kinput_key_pressed(GLFW_KEY_D)) { focus = true; focus_item_target = ctx->folder_files.size; }
+        ui__calculate_fancy_scroll_px_with_focus_animated(
+            scroll_px_float, scroll_x0, scroll_v0, scroll_a0, scroll_time, scroll_acum_time,
+            scroll_rect.height,
+            (ctx->folder_files.size + 1) * item_height, mice_wheel() *2,
+            focus, focus_item_target * item_height, item_height
+        );
+    }
     b_draw_frame(scroll_rect, RED, 1);
+    int scroll_px_value = (int)*scroll_px_float;
+    int *scroll_px = &scroll_px_value;
+
 
     // @Note(woy): This is to draw only the range of files which are visible:
     const int file_i_pad = 4;
@@ -301,7 +325,7 @@ void draw_all(Ctx *ctx, const bool force_redraw) {
             uitree_Node con_vsplit = uitree_container_dumb(widget_vsplit);
             widget_2split_set_user_default_state(t, &con_vsplit, ui_line_height(ctx) * 2, true, 2, 1);
             {
-                widget = uitree_widget(UI_WIDGET_HEADER);
+                widget = uitree_widget_id(t, UI_WIDGET_HEADER, cstr_SL("header"));
                 uitree_container_add_child(t, &con_vsplit, widget);
             }
             {

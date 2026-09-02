@@ -27,6 +27,126 @@ void ui__calculate_fancy_scroll_px(
 }
 
 
+void ui__calculate_fancy_scroll_px_with_focus(
+    int *scroll_px, float *vel_px, int container_px,
+    int child_px, int force_up_or_down, bool focus, int focus_pos_px, int focus_size_px
+) {
+    enum { IMPULSE=40 };
+    if (force_up_or_down != 0) {
+        *vel_px = (float)(force_up_or_down * IMPULSE);
+    }
+    if (focus) {
+        int distance_back = 0 - (*scroll_px + focus_pos_px);
+        if (distance_back > 0) { *scroll_px += distance_back; }
+        int distance_foward = container_px - (*scroll_px + focus_pos_px + focus_size_px);
+        if (distance_foward < 0) { *scroll_px += distance_foward; }
+        *vel_px = 0;
+    }
+    if (*vel_px != 0) {
+        *scroll_px += (int)*vel_px;
+        *vel_px *= 0.5f;
+        if (fabsf(*vel_px) < 0.1f) {
+            *vel_px = 0;
+        }
+    }
+    int max_scroll = int_max(container_px, child_px) - container_px;
+    *scroll_px = int_clamp(-max_scroll, 0, *scroll_px);
+}
+
+
+/*
+   @Note Don't touch the values x0, v0, a0, time, and acum_time.
+   */
+void ui__calculate_fancy_scroll_px_with_focus_animated(
+    float *scroll_px, float *x0, float *v0, float *a0, float *time,
+    float *acum_time, int container_px, int child_px, int force_up_or_down,
+    bool focus, int focus_pos_px, int focus_size_px
+) {
+    enum { IMPULSE_PX=70, MANUAL_TICKS=10, FOCUS_TICKS=10 };
+    if (focus || force_up_or_down) {
+        float target = 0;
+        float ticks = 0;
+        if (focus) {
+            float distance_back = 0 - (*scroll_px + (float)focus_pos_px);
+            float distance_foward = (float)container_px - (*scroll_px + (float)focus_pos_px + (float)focus_size_px);
+            if (distance_back > 0) { target = distance_back; }
+            if (distance_foward < 0) { target = distance_foward; }
+            ticks = FOCUS_TICKS;
+        }
+        if (force_up_or_down) {
+            target = (float)(force_up_or_down * IMPULSE_PX);
+            ticks = MANUAL_TICKS;
+        }
+        *v0 = 0;
+        if (target != 0) {
+            *a0 = (-2 * target) / (ticks * ticks);
+            *v0 = (2 * target) / (ticks);
+            *time = ticks;
+            *acum_time = 0;
+            *x0 = *scroll_px;
+        }
+    }
+    do { if (*v0 != 0) {
+        float extract = float_clamp(0, *time, 1.0f);
+        if (extract == 0) { *v0 = 0; break; }
+        *acum_time += extract;
+        *time -= extract;
+        *scroll_px = *x0 + *v0 * *acum_time + (*a0 * *acum_time * *acum_time) / 2.0f;
+    }} while (0);
+    int max_scroll = int_max(container_px, child_px) - container_px;
+    *scroll_px = float_clamp(-(float)max_scroll, 0, *scroll_px);
+}
+
+
+/*
+void ui__calculate_fancy_scroll_px_with_focus_animated(
+    float *scroll_px, float *vel_px, float *time, int container_px,
+    int child_px, int force_up_or_down, bool focus, int focus_pos_px, int focus_size_px
+) {
+    enum { IMPULSE=20 };
+    const float FRICC = 3.0f;
+    static float delme = 0;
+    static float delme2 = 0;
+    //const float FOCUS_TICKS = 10;
+    if (force_up_or_down != 0) {
+        *vel_px = (float)(force_up_or_down * IMPULSE);
+    }
+    if (focus) {
+        float target = 0;
+        float distance_back = 0 - (*scroll_px + (float)focus_pos_px);
+        float distance_foward = (float)container_px - (*scroll_px + (float)focus_pos_px + (float)focus_size_px);
+        float fricc = FRICC;
+        if (distance_back > 0) { target = distance_back; }
+        if (distance_foward < 0) { target = distance_foward; }
+        *vel_px = 0;
+        if (target != 0) {
+            fricc = (target < 0) ? FRICC : -FRICC;
+            *vel_px = -float_sign(fricc) * (float)sqrt(-2 * (double)target * (double)fricc);
+            *time = -*vel_px / FRICC;
+            *time = fabsf(*time);
+            delme = *scroll_px;
+            delme2 = 0;
+            printfd("%f %f %f", *scroll_px, target, fricc);
+        }
+    }
+    do { if (*vel_px != 0) {
+        float extract = float_clamp(0, *time, 1.0f);
+        if (extract == 0) { *vel_px = 0; break; }
+        *time -= extract;
+        delme2 += extract;
+        float fricc = signbit(*vel_px) ? FRICC : -FRICC;
+        float x0 = delme;
+        float v0 = *vel_px;
+        *scroll_px = x0 + v0 * delme2 + (fricc * delme2 * delme2) / 2.0f;
+        printfd("*vel_px %f scroll %f extract %f", *vel_px, *scroll_px, extract);
+    }} while (0);
+    int max_scroll = int_max(container_px, child_px) - container_px;
+    *scroll_px = float_clamp(-(float)max_scroll, 0, *scroll_px);
+}*/
+
+
+
+
 /// @Param x_or_y: True is X (Horizontal), False is Y (Vertical).
 /// @Param minimum_gap_px: Minimum gap between drags.
 /// @Param maximum_px: Maximum value a gap can go.

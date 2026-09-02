@@ -2,6 +2,7 @@
 #define STATE_INIT_H
 
 #include "state.h"
+#include "textbox_wrap.h"
 #include "stbtt_extra.h"
 #include "wod_drawer.h"
 #include <sys/stat.h>

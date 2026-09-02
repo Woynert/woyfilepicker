@@ -1,5 +1,5 @@
 #include "operations.h"
-#include "textbox.h"
+#include "textbox_wrap.h"
 #include "wod_drawer.h"
 #include "state_init.h"
 #define DBUF_IMG_T  Image
@@ -21,10 +21,6 @@
 #define LA_IMPLEMENTATION
 #include "la.h"
 
-static Textbox textbox = { 0 };
-void textbox_debug_DELME(void) {
-    
-}
 
 void glfw_mouse_callback(GLFWwindow* w, int button, int action, int mods) {
     winput_glfw_mouse_button_callback(w, button, action, mods);
@@ -40,28 +36,30 @@ void glfw_cursor_pos_callback(GLFWwindow *w, double xpos, double ypos) {
     MUST_REDRAW = true;
 }
 void glfw_key_callback(GLFWwindow* w, int key, int scancode, int action, int mods) {
+    Ctx *ctx = (Ctx*)glfwGetWindowUserPointer(w);
     kinput_glfw_key_callback(w, key, scancode, action, mods);
     MUST_REDRAW = true;
     if (kinput_key_pressed(GLFW_KEY_Q)) {
         MUST_CLOSE = true;
     }
-    textbox_glfw_key_callback(&textbox, key, scancode, action, mods);
+    textbox_glfw_key_callback(&ctx->tbox_path, key, scancode, action, mods);
 }
 void glfw_char_callback(GLFWwindow* w, unsigned int codepoint) {
-    textbox_add_codepoint(&textbox, codepoint);
-    if (kinput_key_pressed(GLFW_KEY_T)) {
-        textbox_add_codepoint(&textbox, 0x0041);
-        textbox_add_codepoint(&textbox, 0x007A);
-        textbox_add_codepoint(&textbox, 0x00A9);
-        textbox_add_codepoint(&textbox, 0x00FF);
-        textbox_add_codepoint(&textbox, 0x0100);
-        textbox_add_codepoint(&textbox, 0x07FF);
-        textbox_add_codepoint(&textbox, 0x0800);
-        textbox_add_codepoint(&textbox, 0xFFFF);
-        textbox_add_codepoint(&textbox, 0x10000);
-        textbox_add_codepoint(&textbox, 0x1F600);
+    Ctx *ctx = (Ctx*)glfwGetWindowUserPointer(w);
+    textbox_add_codepoint(&ctx->tbox_path, codepoint);
+    if (kinput_key_pressed(GLFW_KEY_LEFT_CONTROL) && kinput_key_pressed(GLFW_KEY_T)) {
+        textbox_add_codepoint(&ctx->tbox_path, 0x0041);
+        textbox_add_codepoint(&ctx->tbox_path, 0x007A);
+        textbox_add_codepoint(&ctx->tbox_path, 0x00A9);
+        textbox_add_codepoint(&ctx->tbox_path, 0x00FF);
+        textbox_add_codepoint(&ctx->tbox_path, 0x0100);
+        textbox_add_codepoint(&ctx->tbox_path, 0x07FF);
+        textbox_add_codepoint(&ctx->tbox_path, 0x0800);
+        textbox_add_codepoint(&ctx->tbox_path, 0xFFFF);
+        textbox_add_codepoint(&ctx->tbox_path, 0x10000);
+        textbox_add_codepoint(&ctx->tbox_path, 0x1F600);
     }
-    textbox__debug_print(&textbox);
+    textbox__debug_print(&ctx->tbox_path);
     MUST_REDRAW = true;
 }
 void glfw_window_size_callback (GLFWwindow *w, int width, int height) {
