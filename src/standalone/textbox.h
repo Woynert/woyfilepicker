@@ -134,6 +134,12 @@ void textbox__cursor_right(Textbox *t) {
     textbox__snap_cursor_to_next_codepoint_boundary(t);
 }
 
+void textbox__delete(Textbox *t) {
+    if (t->cursor >= t->size) { return; }
+    textbox__cursor_right(t);
+    textbox__backspace(t);
+}
+
 void textbox_add_codepoint(Textbox *t, unsigned int codepoint) {
     // (See man 7 utf-8) Codepoint to utf8 table (ranges are inclusive):
     // U+0000 to U+007F    | 1 byte  | 0xxxxxxx
@@ -165,6 +171,10 @@ void textbox_add_codepoint(Textbox *t, unsigned int codepoint) {
     textbox__insert_codepoint(t, (char*)bytes, length);
 }
 
+void textbox_set_cursor(Textbox *t, int cursor) {
+    t->cursor = int_clamp(0, t->size, cursor);
+    textbox__snap_cursor_to_next_codepoint_boundary(t);
+}
 
 
 #endif

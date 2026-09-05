@@ -113,6 +113,15 @@ const stbtt_packedchar* font_get_codepoint_info(wod_font_t font, int codepoint) 
     return NULL;
 }
 
+/// @Note: Same as font_get_codepoint_info, but will try multiple fallbacks.
+const stbtt_packedchar* font_get_codepoint_info_fallback(wod_font_t font, int *codepoints, int size) {
+    for (int i = 0; i < size; ++i) {
+        const stbtt_packedchar *res = font_get_codepoint_info(font, codepoints[i]);
+        if (res) { return res; }
+    }
+    return NULL;
+}
+
 // Prefer to call load_file_str.
 wod_file_t wod_load_file(const char *path) {
     char *buffer = NULL;
@@ -356,22 +365,10 @@ void draw_text(const strview_t text, const wod_font_t font, V2i pos, int font_si
         codepoint = GetCodepointNext_woy(bytes, &codepoint_size, available_bytes);
         available_bytes -= codepoint_size;
         bytes += codepoint_size;
-        //printfd("Codepoint %lc", codepoint);
 
-        const stbtt_packedchar *cp_info = font_get_codepoint_info(font, codepoint);
-        if (!cp_info) { // ↓↓↓ This feels too noisy, consider just drawing a rectangle instead.
-            if (cp_info_fallback) {
-                cp_info = cp_info_fallback;
-            } else if (try_get_callback) {
-                try_get_callback ^= 1;
-                cp_info_fallback = font_get_codepoint_info(font, 0xFFFD); //'�'
-                if (!try_get_callback) {
-                    cp_info_fallback = font_get_codepoint_info(font, (int)'?');
-                }
-                cp_info = cp_info_fallback;
-            }
-            if (!cp_info) { continue; }
-        }
+        int fallback[] = { codepoint, 0xFFFD, (int)'?' }; // 0xFFFD -> '�'
+        const stbtt_packedchar *cp_info = font_get_codepoint_info_fallback(font, fallback, countof(fallback));
+        if (!cp_info) { continue; }
 
         Rect2i rect = (Rect2i) {{ cp_info->x0, cp_info->y0, cp_info->x1 - cp_info->x0, cp_info->y1 - cp_info->y0 }};
         wod__drawer.draw_texture_bitmap(font.bitmap,
@@ -384,7 +381,7 @@ void draw_text(const strview_t text, const wod_font_t font, V2i pos, int font_si
     }
 }
 
-Rect2i text_measure(const wod_font_t font, const strview_t text, V2i pos, int font_size, int spacing, int textLineSpacing, Color color) {
+Rect2i text_measure(const wod_font_t font, const strview_t text, V2i pos, int font_size, int spacing, int textLineSpacing) {
     int xoffset = 0;
     char* bytes = (char*)text.data;
     int available_bytes = text.size;
@@ -395,23 +392,45 @@ Rect2i text_measure(const wod_font_t font, const strview_t text, V2i pos, int fo
         int codepoint = GetCodepointNext_woy(bytes, &codepoint_size, available_bytes);
         available_bytes -= codepoint_size;
         bytes += codepoint_size;
-        const stbtt_packedchar *cp_info = font_get_codepoint_info(font, codepoint);
-        if (!cp_info) { // ↓↓↓ This feels too noisy, consider just drawing a rectangle instead.
-            if (cp_info_fallback) {
-                cp_info = cp_info_fallback;
-            } else if (try_get_callback) {
-                try_get_callback ^= 1;
-                cp_info_fallback = font_get_codepoint_info(font, 0xFFFD); //'�'
-                if (!try_get_callback) {
-                    cp_info_fallback = font_get_codepoint_info(font, (int)'?');
-                }
-                cp_info = cp_info_fallback;
-            }
-            if (!cp_info) { continue; }
-        }
+        int fallback[] = { codepoint, 0xFFFD, (int)'?' }; // 0xFFFD -> '�'
+        const stbtt_packedchar *cp_info = font_get_codepoint_info_fallback(font, fallback, countof(fallback));
+        if (!cp_info) { continue; }
         xoffset += (int)cp_info->xoff2 + spacing;
     }
     return (Rect2i) {{ 0,0,xoffset,font_size }};
+}
+
+
+/// @Returns Codepoint aligned cursor.
+int text_get_nearest_codepoint_to_px(
+    V2i mouse_pos, V2i pos, const wod_font_t font, const strview_t text, int spacing
+) {
+    int closest_distance = INT_MAX;
+    int closest_distance_cursor = 0;
+    int target_distance = mouse_pos.x - pos.x;
+
+    int xoffset = 0;
+    char* bytes = (char*)text.data;
+    int available_bytes = text.size;
+    int codepoint_size = 0;
+    while (available_bytes > 0) {
+        #define CALCULATE_CLOSEST                                  \
+        if (abs(xoffset - target_distance) < closest_distance) {   \
+            closest_distance = abs(xoffset - target_distance);     \
+            closest_distance_cursor = text.size - available_bytes; \
+        }
+        CALCULATE_CLOSEST else { break; }
+        int codepoint = GetCodepointNext_woy(bytes, &codepoint_size, available_bytes);
+        available_bytes -= codepoint_size;
+        bytes += codepoint_size;
+        int fallback[] = { codepoint, 0xFFFD, (int)'?' }; // 0xFFFD -> '�'
+        const stbtt_packedchar *cp_info = font_get_codepoint_info_fallback(font, fallback, countof(fallback));
+        if (!cp_info) { continue; }
+        xoffset += (int)cp_info->xoff2 + spacing;
+    }
+    CALCULATE_CLOSEST
+    #undef CALCULATE_CLOSEST
+    return closest_distance_cursor;
 }
 
 /*
