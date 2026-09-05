@@ -2,7 +2,7 @@
 #define STATE_INIT_H
 
 #include "state.h"
-#include "textbox_wrap.h"
+#include "textbox_visual.h"
 #include "stbtt_extra.h"
 #include "wod_drawer.h"
 #include <sys/stat.h>
@@ -70,6 +70,8 @@ void ctx_load_assets(Ctx *ctx) {
     stbtt_print_bitmap((unsigned char*)font.bitmap.data, font.bitmap.size.x, font.bitmap.size.y);
     wassert(!wod_error());
     ctx->font_mono = font;
+
+    TextboxVisual_setup(&ctx->tbox_path_visual, ctx->font1, 2, 0);
 }
 
 

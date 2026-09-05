@@ -2,8 +2,9 @@
 #define STATE_H
 
 #include "la_extra.h"
+#define TEXTBOX_VISUAL__ONLY_HEADER
+#include "textbox_visual.h"
 #include "wod_drawer.h"
-#include "textbox.h"
 #define STRPOOL_STR strview_t
 #include "strpool.h"
 
@@ -41,8 +42,11 @@ typedef struct Ctx {
     Strpool strpool_general;
 
     V2i window_size;
+
     Textbox tbox_path;
+    TextboxVisual tbox_path_visual;
     Textbox tbox_search;
+    TextboxVisual tbox_search_visual;
 
     // Navigation.
     strbuf_t *home;

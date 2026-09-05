@@ -63,15 +63,6 @@ int textbox__grow(Textbox *t, int min_capacity) {
     return 0;
 }
 
-int textbox_set_buffer(Textbox *t, const char *buf, int size) {
-    int err = textbox__grow(t, size);
-    if (err != 0) { printferr("Couldn't grow. OOM?"); return 0; }
-    if (size > 0) { memmove(t->buffer, buf, (size_t)size); }
-    t->size = size;
-    t->cursor = size;
-    return 0;
-}
-
 void textbox__snap_cursor_to_next_codepoint_boundary(Textbox *t) {
     while(t->cursor < t->size) {
         if ((t->buffer[t->cursor] & textbox__mask[4]) != textbox__prefix[4]) {
@@ -105,7 +96,7 @@ void textbox__delete_range(Textbox *t, int from, int to) {
     t->size -= to - from;
 }
 
-void textbox__backspace(Textbox *t) {
+void textbox_backspace(Textbox *t) {
     textbox__snap_cursor_to_next_codepoint_boundary(t);
     // Delete until previous codepoint boundary.
     // Scan back until you find something that is not 10xxxxxx.
@@ -119,7 +110,7 @@ void textbox__backspace(Textbox *t) {
     textbox__delete_range(t, t->cursor, start);
 }
 
-void textbox__cursor_left(Textbox *t) {
+void textbox_cursor_left(Textbox *t) {
     if (t->cursor <= 0) { return; }
     --t->cursor;
     while (t->cursor > 0) {
@@ -128,16 +119,25 @@ void textbox__cursor_left(Textbox *t) {
     }
 }
 
-void textbox__cursor_right(Textbox *t) {
+void textbox_cursor_right(Textbox *t) {
     if (t->cursor >= t->size) { return; }
     ++t->cursor;
     textbox__snap_cursor_to_next_codepoint_boundary(t);
 }
 
-void textbox__delete(Textbox *t) {
+void textbox_delete(Textbox *t) {
     if (t->cursor >= t->size) { return; }
-    textbox__cursor_right(t);
-    textbox__backspace(t);
+    textbox_cursor_right(t);
+    textbox_backspace(t);
+}
+
+int textbox_set_buffer(Textbox *t, const char *buf, int size) {
+    int err = textbox__grow(t, size);
+    if (err != 0) { printferr("Couldn't grow. OOM?"); return 0; }
+    if (size > 0) { memmove(t->buffer, buf, (size_t)size); }
+    t->size = size;
+    t->cursor = size;
+    return 0;
 }
 
 void textbox_add_codepoint(Textbox *t, unsigned int codepoint) {
@@ -176,5 +176,9 @@ void textbox_set_cursor(Textbox *t, int cursor) {
     textbox__snap_cursor_to_next_codepoint_boundary(t);
 }
 
+void textbox_free(Textbox *t) {
+    if (t->buffer) { free(t->buffer); }
+    *t = (Textbox) { 0 };
+}
 
 #endif

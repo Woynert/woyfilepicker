@@ -1,5 +1,5 @@
 #include "operations.h"
-#include "textbox_wrap.h"
+#include "textbox_visual.h"
 #include "wod_drawer.h"
 #include "state_init.h"
 #define DBUF_IMG_T  Image

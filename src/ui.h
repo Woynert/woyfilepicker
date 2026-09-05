@@ -3,7 +3,7 @@
 
 #include "drawbuffer.h"
 #include "kinput.h"
-#include "textbox_wrap.h"
+#include "textbox_visual.h"
 #include "la_extra.h"
 #include "la.h"
 #include "operations.h"
@@ -122,13 +122,9 @@ void ui_widget_header (Ctx *ctx, uitree_DrawInfo info) {
     //if (ui_button(icon_rect)) { navigate_parent_dir(ctx); }
     icon_rect.width = info.area.width - icon_rect.x - icon_rect.width - CON_PAD;
     b_draw_frame(icon_rect, MAGENTA, 1);
-    int *textbox_scroll_px = &info.state->int_a;
-    float *textbox_vel_px = &info.state->float_a;
-    textbox_draw(&ctx->tbox_path, icon_rect, ctx->font1, ctx->font1.font_size,
-            textbox_scroll_px, textbox_vel_px);
+    textbox_draw(&ctx->tbox_path, &ctx->tbox_path_visual, icon_rect);
     if (mice_pressed(MouseLeft) && Rect2i_collides_V2i(icon_rect, winput_mouse_pos())) {
-        // @TODO: Use textbox wrapper instead.
-        textbox_click(&ctx->tbox_path, ctx->font1, v2i(2 + icon_rect.x + *textbox_scroll_px, 0), 0, winput_mouse_pos());
+        textbox_click(&ctx->tbox_path, &ctx->tbox_path_visual, winput_mouse_pos());
     }
 
     icon_rect.x += icon_rect.width + CON_PAD;
