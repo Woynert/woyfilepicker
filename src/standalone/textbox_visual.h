@@ -41,32 +41,40 @@ void TextboxVisual_setup(TextboxVisual *info, wod_font_t font, int pad, int spac
 }
 
 void textbox_glfw_key_callback(Textbox *t, int key, int scancode, int action, int mods) {
-    (void)scancode, (void)mods;
+    (void)scancode;
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
         switch (key) {
         case GLFW_KEY_DELETE:
         {
-            textbox_delete(t);
-            textbox__debug_print(t);
-            break;
+            textbox_delete(t); break;
         }
         case GLFW_KEY_BACKSPACE:
         {
-            textbox_backspace(t);
-            textbox__debug_print(t);
-            break;
+            textbox_backspace(t); break;
         }
         case GLFW_KEY_LEFT:
         {
-            textbox_cursor_left(t);
+            if (mods & GLFW_MOD_CONTROL) { textbox_move_by_word(t, -1); }
+            else { textbox_cursor_left(t); }
             textbox__debug_print(t);
             break;
         }
         case GLFW_KEY_RIGHT:
         {
-            textbox_cursor_right(t);
+            if (mods & GLFW_MOD_CONTROL) { textbox_move_by_word(t, 1); }
+            else { textbox_cursor_right(t); }
             textbox__debug_print(t);
             break;
+        }
+        case GLFW_KEY_PAGE_UP:
+        case GLFW_KEY_HOME:
+        {
+            textbox_set_cursor(t, 0); break;
+        }
+        case GLFW_KEY_PAGE_DOWN:
+        case GLFW_KEY_END:
+        {
+            textbox_set_cursor(t, INT_MAX); break;
         }
         default: { } }
     }

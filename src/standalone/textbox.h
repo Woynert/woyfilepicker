@@ -4,7 +4,12 @@
    * Mouse selection.
    * Cursor movement.
    * Auto scrolling.
+
+   TODO:
+   * Mouse scrolling.
+   * Focus cursor only when needed and not all the time.
    */
+
 #ifndef TEXTBOX_H
 #define TEXTBOX_H
 
@@ -179,6 +184,50 @@ void textbox_set_cursor(Textbox *t, int cursor) {
 void textbox_free(Textbox *t) {
     if (t->buffer) { free(t->buffer); }
     *t = (Textbox) { 0 };
+}
+
+void textbox_move_by_word(Textbox *t, int dir) {
+    strview_t delimiters = cstr("\n(){};.,\"\'#/");
+    int new_cursor;
+    bool found_space = false;
+    if (dir > 0) {
+        new_cursor = t->size;
+        for (int i = t->cursor+1; i < t->size; ++i) {
+            if (t->buffer[i] == ' ') {
+                found_space = true;
+                continue;
+            }
+            for (int k = 0; k < delimiters.size; ++k) {
+                if (t->buffer[i] == delimiters.data[k] || found_space) {
+                    new_cursor = i;
+                    goto exit_loop;
+                }
+            }
+        }
+    } else {
+        // Only check for Char-Space diff when going LEFT like GTK.
+        bool found_char = false; 
+        new_cursor = 0;
+        for (int i = t->cursor-2; i >= 0; --i) {
+            if (t->buffer[i] == ' ') {
+                if (found_char) {
+                    new_cursor = i +1;
+                    goto exit_loop;
+                }
+                found_space = true;
+                continue;
+            }
+            for (int k = 0; k < delimiters.size; ++k) {
+                if (t->buffer[i] == delimiters.data[k] || found_space) {
+                    new_cursor = i +1;
+                    goto exit_loop;
+                }
+            }
+            found_char = true;
+        }
+    }
+    exit_loop:
+    t->cursor = new_cursor;
 }
 
 #endif
