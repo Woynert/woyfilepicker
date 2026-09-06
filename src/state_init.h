@@ -72,6 +72,7 @@ void ctx_load_assets(Ctx *ctx) {
     ctx->font_mono = font;
 
     TextboxVisual_setup(&ctx->tbox_path_visual, ctx->font1, 2, 0);
+    TextboxVisual_setup(&ctx->tbox_search_visual, ctx->font1, 2, 0);
 }
 
 

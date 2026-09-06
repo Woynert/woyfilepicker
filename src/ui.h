@@ -14,6 +14,7 @@
 #include "ui_common.h"
 #include "wod_drawer.h"
 #include "x11back.h"
+#include "len_div.h"
 
 
 #define DEFAULT_BG LIGHTGRAY
@@ -96,43 +97,57 @@ void ui_widget_test (Ctx *ctx, uitree_DrawInfo info) {
 void ui_widget_header (Ctx *ctx, uitree_DrawInfo info) {
     const int line_height = ui_line_height(ctx);
     int icon_length = line_height * 2;
-    Rect2i icon_rect = {{ info.area.x, info.area.y, icon_length, icon_length }};
-    Rect2i icon_size = {{ 0,0, 32, 32}};
+    const Rect2i icon_size = {{ 0,0, 32, 32}};
+    Rect2i rect = {{ info.area.x, info.area.y, icon_length, icon_length }};
 
-    if (ui_button(icon_rect)) { navigate_parent_dir(ctx); }
-    b_draw_frame(icon_rect, MAGENTA, 1);
-    //ui_draw_text(ctx, cstr_SL("^"), icon_rect.pos);
-    b_draw_texture(ctx->icon_up, Rect2i_center(icon_rect, icon_size));
+    len_div_t sizes[] = {
+        len_div_px(icon_length),
+        len_div_px(icon_length),
+        len_div_px(icon_length),
+        len_div_percent_of_available(50, icon_length),
+        len_div_percent_of_available(50, icon_length),
+        len_div_px(icon_length),
+    };
+    Rect2i divs[countofi(sizes)];
+    div_calculate(info.area, true, CON_PAD, divs, sizes, countofi(sizes));
 
-    icon_rect.x += icon_rect.width + CON_PAD;
-    if (!can_navigate_backwards(ctx)) { b_draw_rect(icon_rect, GRAY); }
-    else if (ui_button(icon_rect)) { navigate_backwards(ctx); }
-    b_draw_frame(icon_rect, MAGENTA, 1);
-    //ui_draw_text(ctx, cstr_SL("<"), icon_rect.pos);
-    b_draw_texture(ctx->icon_left, Rect2i_center(icon_rect, icon_size));
+    int div_i = 0;
+    rect = divs[div_i++];
+    if (ui_button(rect)) { navigate_parent_dir(ctx); }
+    b_draw_frame(rect, MAGENTA, 1);
+    b_draw_texture(ctx->icon_up, Rect2i_center(rect, icon_size));
 
-    icon_rect.x += icon_rect.width + CON_PAD;
-    if (!can_navigate_forward(ctx)) { b_draw_rect(icon_rect, GRAY); }
-    else if (ui_button(icon_rect)) { navigate_forward(ctx); }
-    b_draw_frame(icon_rect, MAGENTA, 1);
-    //ui_draw_text(ctx, cstr_SL(">"), icon_rect.pos);
-    b_draw_texture(ctx->icon_right, Rect2i_center(icon_rect, icon_size));
+    rect = divs[div_i++];
+    if (!can_navigate_backwards(ctx)) { b_draw_rect(rect, GRAY); }
+    else if (ui_button(rect)) { navigate_backwards(ctx); }
+    b_draw_frame(rect, MAGENTA, 1);
+    b_draw_texture(ctx->icon_left, Rect2i_center(rect, icon_size));
 
-    icon_rect.x += icon_rect.width + CON_PAD;
-    //if (ui_button(icon_rect)) { navigate_parent_dir(ctx); }
-    icon_rect.width = info.area.width - icon_rect.x - icon_rect.width - CON_PAD;
-    b_draw_frame(icon_rect, MAGENTA, 1);
-    textbox_draw(&ctx->tbox_path, &ctx->tbox_path_visual, icon_rect);
-    if (mice_pressed(MouseLeft) && Rect2i_collides_V2i(icon_rect, winput_mouse_pos())) {
+    rect = divs[div_i++];
+    if (!can_navigate_forward(ctx)) { b_draw_rect(rect, GRAY); }
+    else if (ui_button(rect)) { navigate_forward(ctx); }
+    b_draw_frame(rect, MAGENTA, 1);
+    b_draw_texture(ctx->icon_right, Rect2i_center(rect, icon_size));
+
+    rect = divs[div_i++];
+    b_draw_frame(rect, MAGENTA, 1);
+    textbox_draw(&ctx->tbox_path, &ctx->tbox_path_visual, rect);
+    if (mice_pressed(MouseLeft) && Rect2i_collides_V2i(rect, winput_mouse_pos())) {
         textbox_click(&ctx->tbox_path, &ctx->tbox_path_visual, winput_mouse_pos());
     }
 
-    icon_rect.x += icon_rect.width + CON_PAD;
-    //if (ui_button(icon_rect)) { navigate_parent_dir(ctx); }
-    icon_rect.width = icon_rect.height;
-    b_draw_frame(icon_rect, MAGENTA, 1);
-    //ui_draw_text(ctx, cstr_SL("search"), icon_rect.pos);
-    b_draw_texture(ctx->icon_search, Rect2i_center(icon_rect, icon_size));
+    rect = divs[div_i++];
+    b_draw_frame(rect, BLUE, 1);
+    textbox_draw(&ctx->tbox_search, &ctx->tbox_search_visual, rect);
+    if (mice_pressed(MouseLeft) && Rect2i_collides_V2i(rect, winput_mouse_pos())) {
+        textbox_click(&ctx->tbox_search, &ctx->tbox_search_visual, winput_mouse_pos());
+    }
+
+    rect = divs[div_i++];
+    b_draw_frame(rect, MAGENTA, 1);
+    b_draw_texture(ctx->icon_search, Rect2i_center(rect, icon_size));
+
+    assert(div_i == countofi(divs));
 }
 
 void ui_widget_bookmarks (Ctx *ctx, uitree_DrawInfo info) {
