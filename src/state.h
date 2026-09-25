@@ -16,11 +16,11 @@ bool FORCE_UI_REDRAW = false;
 typedef int StrpoolId;
 
 typedef struct File {
-    StrpoolId path;
+    ID path;
     bool is_dir;
     struct tm mod_date;
     long mod_date_secs_epoc;
-    StrpoolId bookmark_alias;
+    ID bookmark_alias;
     Strpool *strpool;
 } File;
 

@@ -14,8 +14,8 @@ pkg_config_wrap = writeShellScriptBin "pkg-config" ''
 '';
 
 in
-mkShell { # for GCC
-#llvmPackages.stdenv.mkDerivation { # for clang
+#mkShell { # for GCC
+llvmPackages.stdenv.mkDerivation { # for clang
     name = "gdb-env";
     buildInputs = [
         # build tools
@@ -26,6 +26,7 @@ mkShell { # for GCC
         meson
         ninja
         bear
+        gcovr
 
         # debug
 

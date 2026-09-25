@@ -7,7 +7,6 @@
 #define UITREE_H
 
 #include "arena_extra.h"
-//#include "raylib_extra.h"
 #include "strview.h"
 #include "la_extra.h"
 
@@ -34,7 +33,7 @@ typedef struct uitree_WidgetState {
 
 #define STRMAP__TYPE uitree_WidgetState
 #define STRMAP__NAMESPACE uitree_Map_str_state
-#include "../subprojects/woycontainer/src/strmap.h"
+#include "strmap.h"
 
 typedef struct uitree_Node uitree_Node;
 
@@ -62,7 +61,7 @@ typedef void (uitree_ContainerFunc)(Rect2i area, int child_count, Rect2i *childr
 
 typedef struct uitree_Node {
 
-    int identifier_strpool_id; // -1 means no identifier, It's OK if a widget has no identifier. It's state won't persist thru frames.
+    ID identifier_strpool_id; // It's OK if a widget has no identifier. It's state won't persist thru frames.
 
     bool has_user_draw_func;  // User must check this, if adding an user_function_id.
     int user_draw_func_id;    // An id for the user to identify which function to call.
@@ -189,7 +188,7 @@ uitree_WidgetState * uitree__try_get_saved_state(Uitree *t, strview_t key, uitre
 }
 
 
-#define DYNA__TYPE int
+#define DYNA__TYPE ID
 #define DYNA__NAMESPACE Vec_oldkeys
 #include "da.h"
 
@@ -204,14 +203,14 @@ void uitree__cleanup_saved_state(Uitree *t) {
     uitree_Map_str_state_It it = { 0 };
     while (uitree_Map_str_state_it_next(&t->title_to_state, &it)) {
         if ((t->frame - it.value->__last_frame) > 1) {
-            int str_key_id = strpool_append(&old_keys, it.key);
+            ID str_key_id = strpool_append(&old_keys, it.key);
             Vec_oldkeys_append(&old_keys_ids, str_key_id);
         }
     }
 
     // Remove all.
-    for (dyna_foreach(int, iter, old_keys_ids)) {
-        strview_t key = strpool_get(&old_keys, iter.index);
+    for (dyna_foreach(ID, iter, old_keys_ids)) {
+        strview_t key = strpool_get(&old_keys, *iter.ref); // WARNING: Before it was: "iter.index" (???)
         uitree_Map_str_state_remove(&t->title_to_state, key);
         printfd(ANSI_RED"DEBUG: Cleaning up this state %"PRIstr, PRIstrarg(key));
     }
@@ -337,14 +336,14 @@ void uitree_build_end(Uitree *t) {
 
 uitree_Node uitree_container_dumb(uitree_ContainerFunc *cont_func) {
     return (uitree_Node) {
-        .identifier_strpool_id = -1,
+        .identifier_strpool_id = ID_INVALID,
         .is_container = true,
         .container_func = cont_func,
     };
 }
 
 uitree_Node uitree_container_dumb_id(Uitree *t, strview_t id, uitree_ContainerFunc *cont_func) {
-    int str_id = -1;
+    ID str_id = ID_INVALID;
     if (id.size > 0 && id.data != NULL) {
         str_id = strpool_append(&t->strpool, id);
     }
@@ -356,7 +355,7 @@ uitree_Node uitree_container_dumb_id(Uitree *t, strview_t id, uitree_ContainerFu
 }
 
 uitree_Node uitree_container(Uitree *t, strview_t id, uitree_ContainerFunc *cont_func, int user_draw_func_id) {
-    int str_id = -1;
+    ID str_id = ID_INVALID;
     if (id.size > 0 && id.data != NULL) {
         str_id = strpool_append(&t->strpool, id);
     }
@@ -371,14 +370,14 @@ uitree_Node uitree_container(Uitree *t, strview_t id, uitree_ContainerFunc *cont
 
 uitree_Node uitree_widget(int user_draw_func_id) {
     return (uitree_Node) {
-        .identifier_strpool_id = -1,
+        .identifier_strpool_id = ID_INVALID,
         .has_user_draw_func = true,
         .user_draw_func_id = user_draw_func_id,
     };
 }
 
 uitree_Node uitree_widget_id(Uitree *t, int user_draw_func_id, strview_t id) {
-    int str_id = -1;
+    ID str_id = ID_INVALID;
     if (id.size > 0 && id.data != NULL) {
         str_id = strpool_append(&t->strpool, id);
     }

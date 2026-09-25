@@ -1,7 +1,5 @@
-
-# DEBUG NOTE: All of these debug options are set (albeit implicitely)
+# DEBUG note: All of these debug options are set (albeit implicitely)
 # in the Makefile. Check "make mesonSetupDebug".
-#
 # Compiler args:
 #   -g
 #   -fsanitize=address,undefined
@@ -33,9 +31,13 @@ MY_WARNINGS = [
   # The following should be included in -Wextra, but including them anyway
   '-Wshadow',
   '-Wconversion',
-  '-Wno-language-extension-token',  # Clang only ???
   '-Werror=incompatible-pointer-types',
   #'-Wc++-compat',
+
+  '-Wno-language-extension-token',  # Extension: (typeof).
+  '-Wno-gnu-statement-expression',  # Extension: GNU statement expressions.
+  #'-Wno-error=gnu-statement-expression',  # Extension: GNU statement expressions.
+
 
   '-Wno-type-limits',
   '-Wno-error=float-equal',
@@ -44,6 +46,7 @@ MY_WARNINGS = [
   '-Wno-error=unused-variable',
   '-Wno-error=unused-but-set-variable',
   '-Wno-unused-function',
+  #-Wunused-function'
   '-Wno-error=stringop-truncation',
 
   #'-lundef=false', ## <-- TODO: Find out what this flag does.

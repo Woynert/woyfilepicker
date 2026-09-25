@@ -8,9 +8,7 @@ clean:
 
 # https://mesonbuild.com/howtox.html#use-address-sanitizer
 # https://mesonbuild.com/Builtin-options.html#details-for-buildtype
-# '--debug'          Redundant because of '--buildtype=debug'
-# '-Db_ndebug=false' Redundant because of '--buildtype=debug'
-# '-Doptimization=g' Redundant because of '--buildtype=debug'
+# '--buildtype=debug' implicitely adds: '--debug','-Db_ndebug=false','-Doptimization=g'
 mesonSetupDebug:
 	meson setup --reconfigure --prefix=$(CURDIR)/build build \
 		--buildtype=debug -Doptimization=g -Db_sanitize=address,undefined
