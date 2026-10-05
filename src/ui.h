@@ -32,7 +32,6 @@ X( UI_WIDGET_EXPLORER           , ui_widget_explorer          ) \
 X( UI_WIDGET_HSPLIT_DRAG        , ui_widget_hsplit_drag          ) \
 X( UI_WIDGET_VSPLIT_DRAG        , ui_widget_vsplit_drag          ) \
 /*
-X( UI_WIDGET_VSPLIT_DRAG          , ui_widget_vsplit_drag          ) \
 X( UI_WIDGET_3HSPLIT_DRAG         , ui_widget_3hsplit_drag         ) \
 */
 
@@ -218,7 +217,8 @@ typedef struct {
 
 void ui_widget_bookmarks (Ctx *ctx, uitree_DrawInfo info) {
     if (kinput_key_held(GLFW_KEY_T)) { return; }
-    b_draw_frame(info.area, BLUE, 1);
+    Rect2i area = info.area;
+    b_draw_frame(area, BLUE, 1);
     int line_height = ui_line_height(ctx);
 
     enum ANYTYPE lilo = ANYTYPE_GET_ENUM(Simple_Scroll_t);
@@ -230,13 +230,15 @@ void ui_widget_bookmarks (Ctx *ctx, uitree_DrawInfo info) {
     int *scroll_px = &scroll->scroll_px;
     float *vel_px = &scroll->vel_px;
 
-    Rect2i file_rect = {{ info.area.x, info.area.y, info.area.width, line_height }};
+    Rect2i file_rect = {{ area.x, area.y, area.width, line_height }};
 
     ui_draw_text(ctx, cstr_SL("Places"), v2i(file_rect.x + CON_PAD, file_rect.y));
     file_rect.pos.y += line_height;
 
-    ui__calculate_fancy_scroll_px(scroll_px, vel_px, info.area.height, ctx->bookmarks.size * file_rect.height, mice_wheel());
-    Rect2i scissor_rect = {{info.area.x, file_rect.pos.y, info.area.width, info.area.height -  file_rect.height}};
+    Rect2i scroll_rect = {{ area.x, area.y + line_height, area.width, area.height - line_height }};
+
+    ui__calculate_fancy_scroll_px(scroll_px, vel_px, scroll_rect.height, (ctx->bookmarks.size +1) * file_rect.height, mice_wheel());
+    Rect2i scissor_rect = {{area.x, file_rect.pos.y, area.width, area.height -  file_rect.height}};
     b_draw_begin_scissor(scissor_rect);
 
     if (vel_px != 0) { MUST_REDRAW = true; }
@@ -415,28 +417,41 @@ void widget_draw__main(Ctx *ctx, uitree_NewDrawInfo info) {
 
     {
         UILayoutNode vsplit = make_widget(); {
-            widget_set_id(tree, &vsplit, cstr_SL("main_vsplit"));
-            static Widget_2split_State vsplit_state = { .size=-0.2f,.is_percentage_or_px=0,.gap=2,.pad=4 };
-            widget_set_state(&vsplit, Anytype_make(vsplit_state, Widget_2split_State));
+            widget_set_id(tree, &vsplit, cstr_SL("vsplit_bookmarks_header"));
+            static Widget_2split_State state; state = Widget_2split_State_make(ui_line_height(ctx) * 2, true, 2, 1);
+            widget_set_state(&vsplit, Anytype_make(state, Widget_2split_State));
             widget_set_container_function(&vsplit, widget_vsplit_new);
-            widget_set_drawing_func(&vsplit, UI_WIDGET_VSPLIT_DRAG);
+        }
+        UILayoutNode hsplit = make_widget(); {
+            widget_set_id(tree, &hsplit, cstr_SL("hsplit_header_content"));
+            Widget_2split_State default_state = Widget_2split_State_make(ui_line_height(ctx) * 8, true, CON_PAD*2, 1);
+            Widget_2split_State *state = mapstrobj_get_default(&ctx->frame_objs, Widget_2split_State, default_state, cstr_SL("hsplit_header_content_state"));
+            widget_set_state(&hsplit, Anytype_make(*state, Widget_2split_State));
+            widget_set_container_function(&hsplit, widget_hsplit_new);
+            widget_set_drawing_func(&hsplit, UI_WIDGET_HSPLIT_DRAG);
         }
         UILayoutNode header = make_widget(); {
             widget_set_id(tree, &header, cstr_SL("header"));
-            widget_set_drawing_func(&header, UI_WIDGET_BOOKMARKS);
+            widget_set_drawing_func(&header, UI_WIDGET_HEADER);
+        }
+        UILayoutNode bookmarks = make_widget(); {
+            widget_set_id(tree, &bookmarks, cstr_SL("bookmarks"));
+            widget_set_drawing_func(&bookmarks, UI_WIDGET_BOOKMARKS);
         }
         UILayoutNode explorer = make_widget(); {
             widget_set_id(tree, &explorer, cstr_SL("explorer"));
             widget_set_drawing_func(&explorer, UI_WIDGET_EXPLORER);
         }
+        widget_add_child(tree, &hsplit, bookmarks);
+        widget_add_child(tree, &hsplit, explorer);
         widget_add_child(tree, &vsplit, header);
-        widget_add_child(tree, &vsplit, explorer);
+        widget_add_child(tree, &vsplit, hsplit);
         widget_add_child(tree, &root, vsplit);
     }
     uitree_build_end_new(tree, root);
 
-    //b_draw_rect((Rect2i) {.size=ctx->window_size}, DEFAULT_BG); // Background.
-    b_draw_rect((Rect2i) {.size=ctx->window_size}, DARKPURPLE); // Background.
+    b_draw_rect((Rect2i) {.size=ctx->window_size}, DEFAULT_BG); // Background.
+    //b_draw_rect((Rect2i) {.size=ctx->window_size}, DARKPURPLE); // Background.
 
     int i = -1;
     uitree_List_DrawInfo_It it = { 0 };

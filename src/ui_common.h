@@ -1,6 +1,7 @@
 #ifndef UI_COMMON_H
 #define UI_COMMON_H
 
+#include "anytype_user_types.h"
 #include "drawbuffer.h"
 #include "state.h"
 #include "uitree.h"
@@ -313,21 +314,17 @@ widget_2split_state_t widget_2split_get_state(uitree_WidgetState *state) {
     };
 }
 
-void widget_2split_set_user_default_state(Uitree *tree, uitree_Node *node, int size, bool is_percentage_or_px, int gap_px, int pad_px) {
-    uitree_WidgetState *state = arena_new(tree->arena, uitree_WidgetState, 1);
-    if (state == NULL) { return; }
-    widget_2split_state_t vars = widget_2split_get_state(state);
 
-    *vars.pad = pad_px;
-    *vars.gap = gap_px;
-    *vars.is_percentage_or_px = is_percentage_or_px;
-    if (is_percentage_or_px == 0) {
-        *vars.size = (float)(size - 50) / 100.f; // %
-    } else {
-        *vars.size = (float)size + (float)gap_px; // px
-    }
-    node->user_default_state = state;
+Widget_2split_State Widget_2split_State_make(int size, bool is_percentage_or_px, int gap_px, int pad_px) {
+    return (Widget_2split_State) {
+        .pad = pad_px,
+        .gap = gap_px,
+        .is_percentage_or_px = is_percentage_or_px,
+        .size = (is_percentage_or_px == 0) ? (float)(size - 50) / 100.f : (float)size + (float)gap_px,
+    };
 }
+
+
 
 void widget_vsplit(Rect2i area, int child_count, Rect2i *children, void *user_ctx, uitree_WidgetState *state) {
     (void)user_ctx;
@@ -366,8 +363,7 @@ void widget_vsplit(Rect2i area, int child_count, Rect2i *children, void *user_ct
 
 void widget_vsplit_new(Rect2i area, int child_count, Rect2i *children, Anytype state) {
     Widget_2split_State *vars = Anytype_read_as(state, Widget_2split_State);
-    if (!vars) { printferr("Couldn't cast to Widget_2split_State"); return; }
-    printfd("Widget_2split_State %f %d", vars->size, vars->is_percentage_or_px);
+    if (!vars) { printferr("Couldn't read Widget_2split_State"); return; }
     int first_child_height;
     area = Rect2i_add_padding_all(area, vars->pad);
     // Determines whether the sizes are percentages (relative) or pixels (absolute).
@@ -396,6 +392,41 @@ void widget_vsplit_new(Rect2i area, int child_count, Rect2i *children, Anytype s
         .width  = children[0].width,
         .y      = children[0].y + children[0].height,
         .height = vars->gap,
+    };
+    if (child_count > 2) { printfd("WAR: Too many children."); }
+}
+
+void widget_hsplit_new(Rect2i area, int child_count, Rect2i *children, Anytype state) {
+    Widget_2split_State *vars = Anytype_read_as(state, Widget_2split_State);
+    if (!vars) { printferr("Couldn't read Widget_2split_State"); return; }
+    area = Rect2i_add_padding_all(area, vars->pad);
+    // Determines whether the sizes are percentages (relative) or pixels (absolute).
+    int first_child_width;
+    if (vars->is_percentage_or_px == 0) {
+        first_child_width = (int)((float)area.width * (vars->size + 0.5f));
+    } else {
+        first_child_width = (int)vars->size;
+    }
+    if (child_count > 0) {
+        Rect2i *child = &children[0];
+        child->height = area.height;
+        child->x = area.x;
+        child->width = first_child_width - (vars->gap/2);
+        child->y = area.y;
+    }
+    if (child_count > 1) {
+        Rect2i *child = &children[1];
+        child->height = area.height;
+        child->y = area.y;
+        child->width = area.width - children[0].width - vars->gap;
+        child->x = area.x + children[0].width + vars->gap;
+    }
+    // This rect will be used for dragging.
+    vars->drag_area = (Rect2i) {
+        .y      = children[0].y,
+        .height = children[0].height,
+        .x      = children[0].x + children[0].width,
+        .width  = vars->gap,
     };
     if (child_count > 2) { printfd("WAR: Too many children."); }
 }
@@ -443,6 +474,10 @@ void ui_widget_vsplit_drag(Ctx *ctx, uitree_DrawInfo info) {
     Rect2i area = info.area;
     b_draw_frame(area, ORANGE, 1);
     Widget_2split_State *vars = Anytype_read_as(info.state, Widget_2split_State);
+    if (!vars) {
+        printferr("Couldn't read %d %d", info.state.size, info.state.user_type);
+        return;
+    }
     if (mice_in_rect(vars->drag_area) || vars->is_dragging) {
         b_draw_rect(vars->drag_area, ORANGE);
         if (mice_pressed(MouseLeft)) {
@@ -465,33 +500,62 @@ void ui_widget_vsplit_drag(Ctx *ctx, uitree_DrawInfo info) {
     }
 }
 
+
 void ui_widget_hsplit_drag(Ctx *ctx, uitree_DrawInfo info) {
-    /*
-typedef struct widget_2split_state_t {
-    float *size;
-    int *is_percentage_or_px;
-    int *is_dragging;
-    int *pad;                // px
-    int *gap;                // px
-    Rect2i *drag_area;
-} widget_2split_state_t;
-       */
-/*
     (void)ctx;
     Rect2i area = info.area;
-    widget_2split_state_t vars = widget_2split_get_state(info.state);
-    if (*vars.is_percentage_or_px) {
-        //ui__cal
-        ui__calculate_multiple_drag_px(
-            vars.is_dragging, info.area, 1, vars.size, 30, info.area.width, *vars.gap, true);
-    } else {
-        //ui__calculate_multiple_drag_px(
-            //vars.is_dragging, info.area, 1, vars.size, *vars.gap, info.area.width, *vars.gap * 2, true);
+    //widget_2split_state_t vars = widget_2split_get_state(info.state);
+    Widget_2split_State *vars = Anytype_read_as(info.state, Widget_2split_State);
+    if (!vars) { return; }
+    if (mice_in_rect(vars->drag_area) || vars->is_dragging) {
+        b_draw_rect(vars->drag_area, ORANGE);
+        if (mice_pressed(MouseLeft)) {
+            mice_consume(MouseLeft);
+            vars->is_dragging = true;
+        }
     }
-    //ui__calculate_multiple_drag_percent
-    */
-
+    if (vars->is_dragging) {
+        int mouse_x = winput_mouse_pos().x;
+        if (vars->is_percentage_or_px == 0) {
+            vars->size = ((float)mouse_x - ((float)area.x + (float)area.width / 2.0f)) / (float)area.width;
+            vars->size = float_clamp(-0.45f, 0.45f, vars->size);
+        } else {
+            float factor = ((float)mouse_x - (float)area.x) / (float)area.width;
+            vars->size = factor * (float)area.width;
+            vars->size = (float)int_clamp(30, area.width-30, (int)vars->size);
+        }
+        // ↑↑↑ This ensures at least a % is visible at minimum.
+        if (mice_released(MouseLeft)) { vars->is_dragging = false; }
+    }
 }
+
+//void ui_widget_hsplit_drag(Ctx *ctx, uitree_DrawInfo info) {
+    //[>
+//typedef struct widget_2split_state_t {
+    //float *size;
+    //int *is_percentage_or_px;
+    //int *is_dragging;
+    //int *pad;                // px
+    //int *gap;                // px
+    //Rect2i *drag_area;
+//} widget_2split_state_t;
+       //*/
+//[>
+    //(void)ctx;
+    //Rect2i area = info.area;
+    //widget_2split_state_t vars = widget_2split_get_state(info.state);
+    //if (*vars.is_percentage_or_px) {
+        ////ui__cal
+        //ui__calculate_multiple_drag_px(
+            //vars.is_dragging, info.area, 1, vars.size, 30, info.area.width, *vars.gap, true);
+    //} else {
+        ////ui__calculate_multiple_drag_px(
+            ////vars.is_dragging, info.area, 1, vars.size, *vars.gap, info.area.width, *vars.gap * 2, true);
+    //}
+    ////ui__calculate_multiple_drag_percent
+    //*/
+
+//}
 
 /*
 void ui_widget_hsplit_drag(Ctx *ctx, uitree_DrawInfo info) {
