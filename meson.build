@@ -26,7 +26,7 @@ MY_WARNINGS = [
   '-Wmissing-field-initializers',
 
   '-Wextra',
-  '-Wpedantic',
+  #'-Wpedantic',
   '-Wnull-dereference',
   # The following should be included in -Wextra, but including them anyway
   '-Wshadow',

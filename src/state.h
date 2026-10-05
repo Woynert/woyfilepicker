@@ -1,6 +1,8 @@
 #ifndef STATE_H
 #define STATE_H
 
+#include "mapstrobj.h"
+#include "focuser.h"
 #include "la_extra.h"
 #define TEXTBOX_VISUAL__ONLY_HEADER
 #include "textbox_visual.h"
@@ -47,6 +49,15 @@ typedef struct Ctx {
     TextboxVisual tbox_path_visual;
     Textbox tbox_search;
     TextboxVisual tbox_search_visual;
+
+    // Focused widget
+    //bool have_focused_widget;
+    //void* focused_widget; // Can be Textbox
+    // glfw_key_callback(void* data, int key, int scancode, int action, int mods)
+    // focused_widget_key_callback;
+    Focuser focuser;
+
+    MapStrObj frame_objs;
 
     // Navigation.
     strbuf_t *home;

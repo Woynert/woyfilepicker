@@ -6,6 +6,7 @@
 #ifndef UITREE_H
 #define UITREE_H
 
+#include "anytype.h"
 #include "arena_extra.h"
 #include "strview.h"
 #include "la_extra.h"
@@ -35,29 +36,68 @@ typedef struct uitree_WidgetState {
 #define STRMAP__NAMESPACE uitree_Map_str_state
 #include "strmap.h"
 
-typedef struct uitree_Node uitree_Node;
 
 typedef struct uitree_DrawInfo {
     int    user_draw_func_id;    // An id for the user to identify which function to call.
     Rect2i area;
-    uitree_WidgetState *state;   // Persistent state, can be used to keep container's scroll value, etc.
-    int layer;
+    Anytype state;   // Persistent state, can be used to keep container's scroll value, etc.
+    strview_t node_id;
 } uitree_DrawInfo;
+
+
+typedef struct {
+    strview_t node_path;
+    Rect2i area;
+    Anytype state;
+} uitree_NewDrawInfo;
+
+
 
 #define LIST__TYPE uitree_DrawInfo
 #define LIST__NAMESPACE uitree_List_DrawInfo
 #include "list_simple.h"
 
-#define DYNA__TYPE uitree_List_DrawInfo
-#define DYNA__NAMESPACE uitree__Vec_List_DrawInfo
-#include "da.h"
+typedef struct uitree_Node uitree_Node;
 
 #define DYNA__TYPE uitree_Node
 #define DYNA__NAMESPACE uitree__Vec_Node
 #define DYNA__ONLY_HEADER
 #include "da.h"
 
-typedef void (uitree_ContainerFunc)(Rect2i area, int child_count, Rect2i *children, void *user_ctx, uitree_WidgetState *state);
+typedef struct UILayoutNode UILayoutNode;
+
+#define DYNA__TYPE UILayoutNode
+#define DYNA__NAMESPACE uitree__Vec_UILayoutNode
+#define DYNA__ONLY_HEADER
+#include "da.h"
+
+//typedef void (uitree_ContainerFunc)(Rect2i area, int child_count, Rect2i *children, void *user_ctx, uitree_WidgetState *state);
+typedef void (uitree_ContainerFunc)(Rect2i area, int child_count, Rect2i *children, Anytype state);
+
+typedef struct {
+    Blob blob;
+    int user_type;
+    void *data;
+    int size;
+} UILayoutNode_Data;
+
+typedef struct UILayoutNode {
+    uitree_ContainerFunc *container_func;
+    void *user_ctx;              // For container_func.
+    uitree__Vec_UILayoutNode children;
+    ID identifier;              // ID into uitree.strpool
+    Anytype state;
+
+    int user_draw_func_id; // If <= 0 will be ignored.
+    //Draw_Func_t *draw_func;
+
+    Rect2i area; // Used to hold the area momentarily during end_tree.
+} UILayoutNode;
+
+#define DYNA__TYPE UILayoutNode
+#define DYNA__NAMESPACE uitree__Vec_UILayoutNode
+#define DYNA__ONLY_IMP
+#include "da.h"
 
 typedef struct uitree_Node {
 
@@ -89,7 +129,7 @@ typedef struct uitree_Node {
 
 typedef struct Uitree {
     ArenaRoot arenaroot;
-    Arena arena;
+    Arena *arena;
     Strpool strpool; // For temporarily storing Nodes' identifiers.
 
     // Maps a title to a state. We might add or delete from this every frame.
@@ -108,42 +148,68 @@ typedef struct Uitree {
 } Uitree;
 
 /// @Returns error.
-int uitree_create(Uitree *t) {
+int uitree_create(Uitree *t, Arena *perm) {
     *t = (Uitree) { 0 };
-    t->arenaroot = ArenaRoot_create(1 << 20);
-    return uitree_Map_str_state_create(&t->title_to_state);
+    //t->arenaroot = ArenaRoot_create(1 << 20);
+    t->arena = perm;
+    strpool_create_with_allocator(&t->strpool, arena_allocator, perm);
+    int err = uitree_Map_str_state_create_with_allocator(&t->title_to_state, arena_allocator, perm);
+    return err;
 }
 
 void uitree_free(Uitree *t) {
-    ArenaRoot_free(&t->arenaroot);
-    uitree_Map_str_state_free(&t->title_to_state);
-    *t = (Uitree) { 0 };
+    //ArenaRoot_free(&t->arenaroot);
+    //uitree_Map_str_state_free(&t->title_to_state);
+    //*t = (Uitree) { 0 };
 }
 
 void uitree_build_start(Uitree *t, Rect2i screen) {
-    t->arena = ArenaRoot_get_arena(t->arenaroot);
-    t->screen = screen;
-    strpool_create_with_allocator(&t->strpool, arena_allocator, &t->arena);
+    //t->arena = ArenaRoot_get_arena(t->arenaroot);
+    //t->screen = screen;
+    //strpool_create_with_allocator(&t->strpool, arena_allocator, &t->arena);
 }
 
-void uitree__print_tree(Uitree *t, uitree_Node *node, int level) {
+//void uitree__print_tree(Uitree *t, uitree_Node *node, int level) {
+    //for (int i = 0; i < level; ++i) {
+        //printf("   ");
+    //}
+    //printf("%s", node->is_container ? "Container" : "Widget");
+
+    //strview_t identifier = strpool_get(&t->strpool, node->identifier_strpool_id);
+    //if (identifier.size > 0) {
+        //printf(" id:%"PRIstr, PRIstrarg(identifier));
+    //}
+    //if (node->has_user_draw_func) {
+        //printf(" area:"Rect2i_Fmt, Rect2i_Arg(node->_area));
+    //}
+    //printf("\n");
+    //if (!node->is_container) { return; }
+
+    //for (int i = 0; i < node->container.children.size; ++i) {
+        //uitree__print_tree(t, &node->container.children.items[i], level+1);
+    //}
+//}
+
+void uitree__print_tree(Uitree *t, UILayoutNode *node, int level);
+void uitree__print_tree(Uitree *t, UILayoutNode *node, int level) {
     for (int i = 0; i < level; ++i) {
         printf("   ");
     }
-    printf("%s", node->is_container ? "Container" : "Widget");
+    //printf("%s", node->is_container ? "Container" : "Widget");
+    printf("children %d", node->children.size);
 
-    strview_t identifier = strpool_get(&t->strpool, node->identifier_strpool_id);
+    strview_t identifier = strpool_get(&t->strpool, node->identifier);
     if (identifier.size > 0) {
         printf(" id:%"PRIstr, PRIstrarg(identifier));
     }
-    if (node->has_user_draw_func) {
-        printf(" area:"Rect2i_Fmt, Rect2i_Arg(node->_area));
-    }
+    //if (node->has_user_draw_func) {
+        printf(" area:"Rect2i_Fmt, Rect2i_Arg(node->area));
+    //}
     printf("\n");
-    if (!node->is_container) { return; }
+    //if (!node->is_container) { return; }
 
-    for (int i = 0; i < node->container.children.size; ++i) {
-        uitree__print_tree(t, &node->container.children.items[i], level+1);
+    for (int i = 0; i < node->children.size; ++i) {
+        uitree__print_tree(t, &node->children.items[i], level+1);
     }
 }
 
@@ -195,7 +261,7 @@ uitree_WidgetState * uitree__try_get_saved_state(Uitree *t, strview_t key, uitre
 void uitree__cleanup_saved_state(Uitree *t) {
     // Collect keys to purge.
 
-    Arena arena = t->arena;
+    Arena arena = *t->arena;
     Strpool old_keys;
     Vec_oldkeys old_keys_ids = Vec_oldkeys_create_with_allocator(arena_allocator, &arena);
     strpool_create_with_allocator(&old_keys, arena_allocator, &arena);
@@ -217,21 +283,27 @@ void uitree__cleanup_saved_state(Uitree *t) {
 }
 
 
-void uitree__container_calculate_children_area(Uitree *t, Arena *scratch, uitree_Node *node) {
-    if (node->container_func == NULL) { printfd(ANSI_RED"ERROR: Container has no 'container_function'."); return; }
-    Rect2i *children_areas = arena_new(scratch, Rect2i, node->container.children.size);
-    strview_t identifier = strpool_get(&t->strpool, node->identifier_strpool_id);
-    uitree_WidgetState *state = uitree__try_get_saved_state(t, identifier, node);
-    wassert(state);
-    node->container_func(node->_area, node->container.children.size, children_areas, node->container.user_ctx, state);
-    for (int i = 0; i < node->container.children.size; ++i) {
-        node->container.children.items[i]._area = children_areas[i];
+void uitree__container_calculate_children_area(Uitree *t, Arena *scratch, UILayoutNode *node) {
+    //if (node->container_func == NULL) { printfd(ANSI_RED"ERROR: Container has no 'container_function'."); return; }
+    if (node->container_func == NULL) {
+        for (int i = 0; i < node->children.size; ++i) {
+            node->children.items[i].area = node->area;
+        }
+        return;
+    }
+    Rect2i *children_areas = arena_new(scratch, Rect2i, node->children.size);
+    //strview_t identifier = strpool_get(&t->strpool, node->identifier_strpool_id);
+    //uitree_WidgetState *state = uitree__try_get_saved_state(t, identifier, node);
+    //wassert(state);
+    node->container_func(node->area, node->children.size, children_areas, node->state);
+    for (int i = 0; i < node->children.size; ++i) {
+        node->children.items[i].area = children_areas[i];
     }
 }
 
 
 typedef struct {
-    uitree_Node *node;
+    UILayoutNode *node;
     int child_idx;
     int depth;
 } StackItem;
@@ -254,6 +326,7 @@ void uitree__DELME_print_dyna(uitree__List_Stack *list, int depth) {
 }
 
 
+/*
 void uitree_build_end(Uitree *t) {
     ++t->frame;
     uitree__cleanup_saved_state(t);
@@ -266,7 +339,7 @@ void uitree_build_end(Uitree *t) {
     // Iterate over tree to calculate children area.
 
     {
-        Arena arena = t->arena;
+        Arena arena = *t->arena;
         uitree__List_Stack stack = uitree__List_Stack_create_with_allocator(arena_allocator, &arena);
         StackItem *item;
 
@@ -278,11 +351,11 @@ void uitree_build_end(Uitree *t) {
             STACK_AREA_CONTINUE:
             item = uitree__List_Stack_get_tail(&stack);
             if (!item) { break; }
-            for (; item->child_idx < item->node->container.children.size; ++item->child_idx) {
+            while (item->child_idx < item->node->container.children.size) {
                 uitree_Node *child = &item->node->container.children.items[item->child_idx];
+                ++item->child_idx;
                 if (child->is_container && child->container.children.size > 0) {
                     uitree__container_calculate_children_area(t, &arena, child);
-                    ++item->child_idx;
                     uitree__List_Stack_append(&stack, (StackItem){ .node = child, });
                     goto STACK_AREA_CONTINUE;
                 }
@@ -293,13 +366,12 @@ void uitree_build_end(Uitree *t) {
 
     // Calculate drawing order.
 
-    t->out_draw_list = uitree_List_DrawInfo_create_with_allocator(arena_allocator, &t->arena);
+    t->out_draw_list = uitree_List_DrawInfo_create_with_allocator(arena_allocator, t->arena);
 
     {
-        uitree__List_Stack stack = uitree__List_Stack_create_with_allocator(arena_allocator, &t->arena);
+        uitree__List_Stack stack = uitree__List_Stack_create_with_allocator(arena_allocator, t->arena);
         StackItem *item;
 
-        t->root_node._area = t->screen;
         uitree__List_Stack_append(&stack, (StackItem) { .node = &t->root_node, });
         item = uitree__List_Stack_get_tail(&stack); // DELME
 
@@ -307,23 +379,93 @@ void uitree_build_end(Uitree *t) {
             STACK_ORDER_CONTINUE:
             item = uitree__List_Stack_get_tail(&stack);
             if (!item) { break; }
-            for (; item->child_idx < item->node->container.children.size; ++item->child_idx) {
+            while (item->child_idx < item->node->container.children.size) {
                 uitree_Node *child = &item->node->container.children.items[item->node->container.children.size -1 -item->child_idx];
-
+                ++item->child_idx;
                 if (child->has_user_draw_func) {
                     strview_t identifier = strpool_get(&t->strpool, child->identifier_strpool_id);
                     uitree_WidgetState *state = uitree__try_get_saved_state(t, identifier, child);
                     uitree_DrawInfo draw_info = { .user_draw_func_id = child->user_draw_func_id, .area = child->_area, .state = state, };
                     uitree_List_DrawInfo_append(&t->out_draw_list, draw_info);
                 }
-
                 if (child->is_container && child->container.children.size > 0) {
                     uitree__List_Stack_append(&stack, (StackItem){ .node = child, .depth = item->depth +1, });
-                    ++item->child_idx;
                     goto STACK_ORDER_CONTINUE;
                 }
             }
+            int err = uitree__List_Stack_remove_tail(&stack); // Done with this frame.
+            wassert(err == 0);
+        }
+    }
 
+    t->state_non_persistent = (uitree_WidgetState) { 0 };
+    return;
+}
+*/
+
+
+void uitree_build_end_new(Uitree *t, UILayoutNode root) {
+    //uitree__print_tree(t, &root, 0);
+
+    // Iterate over tree to calculate children area.
+    {
+        Arena scratch = *t->arena;
+        uitree__List_Stack stack = uitree__List_Stack_create_with_allocator(arena_allocator, &scratch);
+        StackItem *item;
+
+        t->root_node._area = t->screen;
+        uitree__container_calculate_children_area(t, &scratch, &root);
+        uitree__List_Stack_append(&stack, (StackItem) { .node = &root, });
+
+        while (stack.size > 0) {
+            STACK_AREA_CONTINUE:
+            item = uitree__List_Stack_get_tail(&stack);
+            if (!item) { break; }
+            while (item->child_idx < item->node->children.size) {
+                UILayoutNode *child = &item->node->children.items[item->child_idx];
+                ++item->child_idx;
+                if (child->children.size > 0) {
+                    uitree__container_calculate_children_area(t, &scratch, child);
+                    uitree__List_Stack_append(&stack, (StackItem){ .node = child, });
+                    goto STACK_AREA_CONTINUE;
+                }
+            }
+            uitree__List_Stack_remove_tail(&stack);
+        }
+    }
+
+    //uitree__print_tree(t, &root, 0);
+
+    // Calculate drawing order.
+
+    t->out_draw_list = uitree_List_DrawInfo_create_with_allocator(arena_allocator, t->arena);
+
+    {
+        uitree__List_Stack stack = uitree__List_Stack_create_with_allocator(arena_allocator, t->arena);
+        StackItem *item;
+
+        uitree__List_Stack_append(&stack, (StackItem) { .node = &root, });
+        item = uitree__List_Stack_get_tail(&stack); // DELME
+
+        while (stack.size) {
+            STACK_ORDER_CONTINUE:
+            item = uitree__List_Stack_get_tail(&stack);
+            if (!item) { break; }
+            while (item->child_idx < item->node->children.size) {
+                UILayoutNode *child = &item->node->children.items[item->node->children.size -1 -item->child_idx];
+                ++item->child_idx;
+                if (child->user_draw_func_id > 0) {
+                    uitree_DrawInfo draw_info = {
+                        .user_draw_func_id = child->user_draw_func_id, .area = child->area, .state = child->state,
+                        .node_id = strpool_get(&t->strpool, child->identifier)
+                    };
+                    uitree_List_DrawInfo_append(&t->out_draw_list, draw_info);
+                }
+                if (child->children.size > 0) {
+                    uitree__List_Stack_append(&stack, (StackItem){ .node = child, .depth = item->depth +1, });
+                    goto STACK_ORDER_CONTINUE;
+                }
+            }
             int err = uitree__List_Stack_remove_tail(&stack); // Done with this frame.
             wassert(err == 0);
         }
@@ -396,10 +538,38 @@ void uitree_container_add_child(Uitree *t, uitree_Node *parent_node, uitree_Node
     }
 
     if (parent_node->container.children.items == NULL) {
-        parent_node->container.children = uitree__Vec_Node_create_with_allocator(arena_allocator, &t->arena);
+        parent_node->container.children = uitree__Vec_Node_create_with_allocator(arena_allocator, t->arena);
     }
 
     uitree__Vec_Node_append(&parent_node->container.children, child_node);
+}
+
+
+
+
+void widget_add_child(Uitree *t, UILayoutNode *parent_node, UILayoutNode child_node) {
+    if (parent_node->children.items == NULL) {
+        parent_node->children = uitree__Vec_UILayoutNode_create_with_allocator(arena_allocator, t->arena);
+    }
+    uitree__Vec_UILayoutNode_append(&parent_node->children, child_node);
+}
+
+UILayoutNode make_widget(void) { return (UILayoutNode) {0}; }
+
+void widget_set_id(Uitree *t, UILayoutNode *node, strview_t id) {
+    node->identifier = strpool_append(&t->strpool, id);
+}
+
+void widget_set_container_function(UILayoutNode *node, uitree_ContainerFunc cont_func) {
+    node->container_func = cont_func;
+}
+
+void widget_set_state(UILayoutNode *node, Anytype state) {
+    node->state = state;
+}
+
+void widget_set_drawing_func(UILayoutNode *node, int drawing_func_user_id) {
+    node->user_draw_func_id = drawing_func_user_id;
 }
 
 #endif

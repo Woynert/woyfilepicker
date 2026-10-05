@@ -1,7 +1,9 @@
 #ifndef UI_H
 #define UI_H
 
+#include "anytype_user_types.h"
 #include "drawbuffer.h"
+#include "anytype.h"
 #include "kinput.h"
 #include "textbox_visual.h"
 #include "la_extra.h"
@@ -23,7 +25,7 @@
 
 
 #define WIDGET__TABLE \
-X( UI_WIDGET_TEST               , ui_widget_test              ) \
+X( UI_WIDGET_NONE               , ui_widget_none              ) \
 X( UI_WIDGET_HEADER             , ui_widget_header              ) \
 X( UI_WIDGET_BOOKMARKS          , ui_widget_bookmarks          ) \
 X( UI_WIDGET_EXPLORER           , ui_widget_explorer          ) \
@@ -76,7 +78,7 @@ bool ui_button(Rect2i rect) {
     return false;
 }
 
-void ui_widget_test (Ctx *ctx, uitree_DrawInfo info) {
+void ui_widget_none (Ctx *ctx, uitree_DrawInfo info) {
     //info.area.height /= 2;
     //info.area.height /= 10;
     //b_draw_rect(info.area, GREEN);
@@ -116,24 +118,58 @@ void ui_widget_header (Ctx *ctx, uitree_DrawInfo info) {
     if (ui_button(rect)) { navigate_parent_dir(ctx); }
     b_draw_frame(rect, MAGENTA, 1);
     b_draw_texture(ctx->icon_up, Rect2i_center(rect, icon_size));
+    {
+        strview_t focuser_widget_id = cstr_SL("btn_up");
+        if (Rect2i_collides_V2i(rect, winput_mouse_pos())) {
+            focuser_take_focus(&ctx->focuser, focuser_widget_id);
+            printfd("Cause everytime we touch");
+        }
+        Focusable btn_focus = focuser_make_focusable(&ctx->focuser, focuser_widget_id);
+        if (btn_focus.has_focus) { b_draw_frame(rect, RED, 2); }
+    }
+
 
     rect = divs[div_i++];
     if (!can_navigate_backwards(ctx)) { b_draw_rect(rect, GRAY); }
     else if (ui_button(rect)) { navigate_backwards(ctx); }
     b_draw_frame(rect, MAGENTA, 1);
     b_draw_texture(ctx->icon_left, Rect2i_center(rect, icon_size));
+    {
+        strview_t focuser_widget_id = cstr_SL("btn_left");
+        if (Rect2i_collides_V2i(rect, winput_mouse_pos())) {
+            focuser_take_focus(&ctx->focuser, focuser_widget_id);
+        }
+        Focusable btn_focus = focuser_make_focusable(&ctx->focuser, focuser_widget_id);
+        if (btn_focus.has_focus) { b_draw_frame(rect, RED, 2); }
+    }
 
     rect = divs[div_i++];
     if (!can_navigate_forward(ctx)) { b_draw_rect(rect, GRAY); }
     else if (ui_button(rect)) { navigate_forward(ctx); }
     b_draw_frame(rect, MAGENTA, 1);
     b_draw_texture(ctx->icon_right, Rect2i_center(rect, icon_size));
+    {
+        strview_t focuser_widget_id = cstr_SL("btn_right");
+        if (Rect2i_collides_V2i(rect, winput_mouse_pos())) {
+            focuser_take_focus(&ctx->focuser, focuser_widget_id);
+        }
+        Focusable btn_focus = focuser_make_focusable(&ctx->focuser, focuser_widget_id);
+        if (btn_focus.has_focus) { b_draw_frame(rect, RED, 2); }
+    }
 
     rect = divs[div_i++];
     b_draw_frame(rect, MAGENTA, 1);
     textbox_draw(&ctx->tbox_path, &ctx->tbox_path_visual, rect);
     if (mice_pressed(MouseLeft) && Rect2i_collides_V2i(rect, winput_mouse_pos())) {
         textbox_click(&ctx->tbox_path, &ctx->tbox_path_visual, winput_mouse_pos());
+    }
+    {
+        strview_t focuser_widget_id = cstr_SL("tbox_path");
+        if (Rect2i_collides_V2i(rect, winput_mouse_pos())) {
+            focuser_take_focus(&ctx->focuser, focuser_widget_id);
+        }
+        Focusable btn_focus = focuser_make_focusable(&ctx->focuser, focuser_widget_id);
+        if (btn_focus.has_focus) { b_draw_frame(rect, RED, 2); }
     }
 
     rect = divs[div_i++];
@@ -142,19 +178,58 @@ void ui_widget_header (Ctx *ctx, uitree_DrawInfo info) {
     if (mice_pressed(MouseLeft) && Rect2i_collides_V2i(rect, winput_mouse_pos())) {
         textbox_click(&ctx->tbox_search, &ctx->tbox_search_visual, winput_mouse_pos());
     }
+    {
+        strview_t focuser_widget_id = cstr_SL("tbox_search");
+        if (Rect2i_collides_V2i(rect, winput_mouse_pos())) {
+            focuser_take_focus(&ctx->focuser, focuser_widget_id);
+        }
+        Focusable btn_focus = focuser_make_focusable(&ctx->focuser, focuser_widget_id);
+        if (btn_focus.has_focus) { b_draw_frame(rect, RED, 2); }
+    }
 
     rect = divs[div_i++];
     b_draw_frame(rect, MAGENTA, 1);
     b_draw_texture(ctx->icon_search, Rect2i_center(rect, icon_size));
+    {
+        strview_t focuser_widget_id = cstr_SL("btn_search");
+        if (Rect2i_collides_V2i(rect, winput_mouse_pos())) {
+            focuser_take_focus(&ctx->focuser, focuser_widget_id);
+        }
+        Focusable btn_focus = focuser_make_focusable(&ctx->focuser, focuser_widget_id);
+        if (btn_focus.has_focus) { b_draw_frame(rect, RED, 2); }
+    }
 
     assert(div_i == countofi(divs));
 }
 
+typedef struct {
+    int scroll_px;
+    float vel_px;
+} Simple_Scroll_t;
+
+typedef struct {
+    float scroll_px_float;
+    float scroll_x0;
+    float scroll_v0;
+    float scroll_a0;
+    float scroll_time;
+    float scroll_acum_time;
+} Complex_Scroll_t;
+
 void ui_widget_bookmarks (Ctx *ctx, uitree_DrawInfo info) {
+    if (kinput_key_held(GLFW_KEY_T)) { return; }
     b_draw_frame(info.area, BLUE, 1);
     int line_height = ui_line_height(ctx);
-    int *scroll_px = &info.state->int_a;
-    float *vel_px = &info.state->float_a;
+
+    enum ANYTYPE lilo = ANYTYPE_GET_ENUM(Simple_Scroll_t);
+    printfd("got %d", lilo);
+
+    Simple_Scroll_t *scroll = mapstrobj_get_default(&ctx->frame_objs, Simple_Scroll_t, (Simple_Scroll_t){0},
+                            SC(&ctx->framearena, info.node_id, cstr_SL("_scroll")));
+    mapstrobj_if_null_use_literal(scroll);
+    int *scroll_px = &scroll->scroll_px;
+    float *vel_px = &scroll->vel_px;
+
     Rect2i file_rect = {{ info.area.x, info.area.y, info.area.width, line_height }};
 
     ui_draw_text(ctx, cstr_SL("Places"), v2i(file_rect.x + CON_PAD, file_rect.y));
@@ -220,14 +295,18 @@ void ui_widget_explorer (Ctx *ctx, uitree_DrawInfo info) {
     }
 
     Rect2i scroll_rect = {{ area.x, area.y + item_height, area.width, area.height - item_height }};
-    float *scroll_px_float = &info.state->float_a;
+    Complex_Scroll_t *scroll = mapstrobj_get(&ctx->frame_objs, Complex_Scroll_t,
+                            SC(&ctx->framearena, info.node_id, cstr_SL("_scroll")));
+    mapstrobj_if_null_use_literal(scroll);
+
+    float *scroll_px_float = &scroll->scroll_px_float;
     {
         // @Note: Precise scrolling. Abstract me away in a struct please.
-        float *scroll_x0 = &info.state->float_b;
-        float *scroll_v0 = &info.state->float_c;
-        float *scroll_a0 = &info.state->float_d;
-        float *scroll_time = &info.state->float_e;
-        float *scroll_acum_time = &info.state->float_f;
+        float *scroll_x0 = &scroll->scroll_x0;
+        float *scroll_v0 = &scroll->scroll_v0;
+        float *scroll_a0 = &scroll->scroll_a0;
+        float *scroll_time = &scroll->scroll_time;
+        float *scroll_acum_time = &scroll->scroll_acum_time;
         bool focus = false;
         int focus_item_target = 0;
         if (kinput_key_pressed(GLFW_KEY_S)) { focus = true; focus_item_target = ctx->folder_files.size/2; }
@@ -324,64 +403,69 @@ void ui_widget_explorer (Ctx *ctx, uitree_DrawInfo info) {
 }
 
 
-void draw_all(Ctx *ctx, const bool force_redraw) {
 
-    static int redraw_count = 0;
-    static Uitree tree = { 0 };
-    static Uitree *t = &tree;
-    static bool setup = false;
-    if (!setup) { setup = true; uitree_create(t); }
+void widget_draw__main(Ctx *ctx, uitree_NewDrawInfo info) {
+    Arena *perm = &ctx->framearena;
+    Uitree *tree = arena_new(perm, Uitree, 1);
+    uitree_create(tree, perm);
+
+    UILayoutNode root = make_widget();
+    root.area = info.area;
+    widget_set_id(tree, &root, cstr_SL("Root"));
 
     {
-        uitree_build_start(t, (Rect2i){ .size=ctx->window_size });
-        uitree_Node widget;
-        uitree_Node con_tree = uitree_container_dumb(widget_stack);
-        {
-            uitree_Node con_vsplit = uitree_container_dumb(widget_vsplit);
-            widget_2split_set_user_default_state(t, &con_vsplit, ui_line_height(ctx) * 2, true, 2, 1);
-            {
-                widget = uitree_widget_id(t, UI_WIDGET_HEADER, cstr_SL("header"));
-                uitree_container_add_child(t, &con_vsplit, widget);
-            }
-            {
-                uitree_Node con_hsplit = uitree_container(t, cstr_SL("hsplit"), widget_hsplit, UI_WIDGET_HSPLIT_DRAG);
-                widget_2split_set_user_default_state(t, &con_hsplit, ui_line_height(ctx) * 8, true, CON_PAD*2, 1);
-                {
-                    {
-                        widget = uitree_widget_id(t, UI_WIDGET_BOOKMARKS, cstr_SL("bookmarks"));
-                        uitree_container_add_child(t, &con_hsplit, widget);
-                    }
-                    {
-                        widget = uitree_widget_id(t, UI_WIDGET_EXPLORER, cstr_SL("explorer"));
-                        uitree_container_add_child(t, &con_hsplit, widget);
-                    }
-                }
-                uitree_container_add_child(t, &con_vsplit, con_hsplit);
-            }
-            uitree_container_add_child(t, &con_tree, con_vsplit);
+        UILayoutNode vsplit = make_widget(); {
+            widget_set_id(tree, &vsplit, cstr_SL("main_vsplit"));
+            static Widget_2split_State vsplit_state = { .size=-0.2f,.is_percentage_or_px=0,.gap=2,.pad=4 };
+            widget_set_state(&vsplit, Anytype_make(vsplit_state, Widget_2split_State));
+            widget_set_container_function(&vsplit, widget_vsplit_new);
+            widget_set_drawing_func(&vsplit, UI_WIDGET_VSPLIT_DRAG);
         }
-        t->root_node = con_tree;
-        uitree_build_end(t);
+        UILayoutNode header = make_widget(); {
+            widget_set_id(tree, &header, cstr_SL("header"));
+            widget_set_drawing_func(&header, UI_WIDGET_BOOKMARKS);
+        }
+        UILayoutNode explorer = make_widget(); {
+            widget_set_id(tree, &explorer, cstr_SL("explorer"));
+            widget_set_drawing_func(&explorer, UI_WIDGET_EXPLORER);
+        }
+        widget_add_child(tree, &vsplit, header);
+        widget_add_child(tree, &vsplit, explorer);
+        widget_add_child(tree, &root, vsplit);
     }
+    uitree_build_end_new(tree, root);
 
-    dbuf_draw_start();
-    b_draw_rect((Rect2i) {.size=ctx->window_size}, DEFAULT_BG); // Background.
-    //b_draw_rect((Rect2i) {.size=ctx->window_size}, DARKPURPLE); // Background.
+    //b_draw_rect((Rect2i) {.size=ctx->window_size}, DEFAULT_BG); // Background.
+    b_draw_rect((Rect2i) {.size=ctx->window_size}, DARKPURPLE); // Background.
 
     int i = -1;
     uitree_List_DrawInfo_It it = { 0 };
-    while(uitree_List_DrawInfo_it_next(&t->out_draw_list, &it)) {
+    while(uitree_List_DrawInfo_it_next(&tree->out_draw_list, &it)) {
         ++i;
-        int depth = t->out_draw_list.size - i;
+        int depth = tree->out_draw_list.size - i;
         uitree_DrawInfo draw = *it.item;
         dbuf_set_layer((uint8_t)depth);
         widget_func[draw.user_draw_func_id](ctx, draw);
+        printfd("Got node ("PRIstrw"), area "Rect2i_Fmt, PRIstrarg(draw.node_id), Rect2i_Arg(draw.area));
     }
+    printfd("End");
 
-    //b_draw_text(ctx->font1, cstr_SL("The quick brown fox jumps over the lazy dog éjpyóç"), v2i(0,300), ctx->font1.font_size, MAGENTA);
-    //b_draw_text(ctx->font1, SF(&ctx->framearena, "Hello %d", 10), v2i(0,200), ctx->font1.font_size, MAGENTA);
-    //b_draw_text(ctx->font1, SC(&ctx->framearena, SF(&ctx->framearena, "%d:%f", 10, 3.4f)), v2i(0,100), ctx->font1.font_size, MAGENTA);
+}
 
+void draw_all(Ctx *ctx, const bool force_redraw) {
+    static int draw_count = 0;
+    ++draw_count;
+    dbuf_draw_start();
+    mapstrobj_set_frame(&ctx->frame_objs, draw_count);
+
+    uitree_NewDrawInfo info = {
+        .node_path = cstr_SL("root"),
+        .area = (Rect2i){ .size=ctx->window_size },
+        .state = ANYTYPE_NULL,
+    };
+    widget_draw__main(ctx, info);
+
+    static int redraw_count = 0;
     if (force_redraw || dbuf_do_buffers_differ()) {
         ++redraw_count;
         //draw_rect((Rect2i) {.size=ctx->window_size}, BLACK);
@@ -396,7 +480,154 @@ void draw_all(Ctx *ctx, const bool force_redraw) {
         wod_set_buffer((u32*)buffer, ctx->window_size, ctx->window_size.x);
     }
 
-    //printfd("Arena consumption is "PRIbyte" out of "PRIbyte, PRIbytearg((1 << 20) - (t->arena.end - t->arena.beg)), PRIbytearg(1 << 20));
+    mapstrobj_free_older_than_frame(&ctx->frame_objs, ctx->framearena);
 }
+
+
+//void draw_all2(Ctx *ctx, const bool force_redraw) {
+
+    //static int redraw_count = 0;
+    //static Uitree tree = { 0 };
+    //static Uitree *t = &tree;
+    //static bool setup = false;
+    //if (!setup) { setup = true; uitree_create(t); }
+
+
+    ////Anytype any = {
+        ////.data = &tree,
+        ////.size = sizeofi(tree),
+        ////.user_type = 10,
+    ////};
+
+    ////Anytype any = Anytype_make(tree, 11);
+
+    ////Uitree *mytree = Anytype_read_as(any, 11, Uitree);
+
+    //uitree_ContainerFunc *delme_container_func;
+    //delme_container_func = (uitree_ContainerFunc*)&widget_hsplit_all_void;
+    ////delme_container_func = (uitree_ContainerFunc*)& ui_widget_vsplit_drag;
+
+
+    
+    //UILayoutNode root = { 0 };
+
+    //{
+        //UILayoutNode widget_explorer = {
+            //.user_draw_func_id = UI_WIDGET_EXPLORER,
+        //};
+
+        //{
+            //UILayoutNode vsplit = {
+                //.container_func = widget_vsplit,
+            //};
+            //Widget_2split_State *vsplit_state = arena_new(&t->arena, Widget_2split_State, 1);
+            //*vsplit_state = (Widget_2split_State) {
+                //.size = 50,
+                //.is_percentage_or_px = true
+            //};
+            //vsplit.is_arena_or_map = true;
+            //vsplit.state_from_arena = make_blob(*vsplit_state);
+
+            //{
+                //UILayoutNode vsplit_drag = {
+                    //.container_func = widget_vsplit,
+                    //.user_draw_func_id = UI_WIDGET_VSPLIT_DRAG,
+                    //.identifier = strpool_append(&t->strpool, cstr_SL("VsplitDrag"))
+                //};
+                //Widget_2split_State *vsplit_drag_state = arena_new(&t->arena, Widget_2split_State, 1);
+                //*vsplit_drag_state = (Widget_2split_State) {
+                    //.size = 50,
+                    //.is_percentage_or_px = true
+                //};
+                //vsplit.is_arena_or_map = false;
+                //mapstrobj_upsert(&ctx->frame_objs, cstr_SL("VsplitDrag"), blob_arg(*vsplit_drag_state));
+
+                //uilayoutnode_add_child(t, &vsplit_drag, widget_explorer);
+                //uilayoutnode_add_child(t, &vsplit_drag, widget_explorer);
+
+                //uilayoutnode_add_child(t, &vsplit, widget_explorer);
+                //uilayoutnode_add_child(t, &vsplit, vsplit_drag);
+            //}
+
+            //uilayoutnode_add_child(t, &root, vsplit);
+        //}
+    //}
+
+    //// Calculate layout and stuff.
+
+    //for (int i = 0; i < root.children.size; ++i) {
+    //}
+
+
+
+    //// uitree_set_id_prefix(cstr_SL("main_view"));
+
+    //{
+        //uitree_build_start(t, (Rect2i){ .size=ctx->window_size });
+        //uitree_Node widget;
+        //uitree_Node con_tree = uitree_container_dumb(widget_stack);
+        //{
+            //uitree_Node con_vsplit = uitree_container_dumb(widget_vsplit);
+            //widget_2split_set_user_default_state(t, &con_vsplit, ui_line_height(ctx) * 2, true, 2, 1);
+            //{
+                //widget = uitree_widget_id(t, UI_WIDGET_HEADER, cstr_SL("header"));
+                //uitree_container_add_child(t, &con_vsplit, widget);
+            //}
+            //{
+                //uitree_Node con_hsplit = uitree_container(t, cstr_SL("hsplit"), widget_hsplit, UI_WIDGET_HSPLIT_DRAG);
+                //widget_2split_set_user_default_state(t, &con_hsplit, ui_line_height(ctx) * 8, true, CON_PAD*2, 1);
+                //{
+                    //{
+                        //widget = uitree_widget_id(t, UI_WIDGET_BOOKMARKS, cstr_SL("bookmarks"));
+                        //uitree_container_add_child(t, &con_hsplit, widget);
+                    //}
+                    //{
+                        //widget = uitree_widget_id(t, UI_WIDGET_EXPLORER, cstr_SL("explorer"));
+                        //// uitree_widget_set_static_state(t, &widget, ctx->static_states.explorer_state);
+                        //uitree_container_add_child(t, &con_hsplit, widget);
+                    //}
+                //}
+                //uitree_container_add_child(t, &con_vsplit, con_hsplit);
+            //}
+            //uitree_container_add_child(t, &con_tree, con_vsplit);
+        //}
+        //t->root_node = con_tree;
+        //uitree_build_end(t);
+    //}
+
+    //dbuf_draw_start();
+    //b_draw_rect((Rect2i) {.size=ctx->window_size}, DEFAULT_BG); // Background.
+    ////b_draw_rect((Rect2i) {.size=ctx->window_size}, DARKPURPLE); // Background.
+
+    //int i = -1;
+    //uitree_List_DrawInfo_It it = { 0 };
+    //while(uitree_List_DrawInfo_it_next(&t->out_draw_list, &it)) {
+        //++i;
+        //int depth = t->out_draw_list.size - i;
+        //uitree_DrawInfo draw = *it.item;
+        //dbuf_set_layer((uint8_t)depth);
+        //widget_func[draw.user_draw_func_id](ctx, draw);
+    //}
+
+    ////b_draw_text(ctx->font1, cstr_SL("The quick brown fox jumps over the lazy dog éjpyóç"), v2i(0,300), ctx->font1.font_size, MAGENTA);
+    ////b_draw_text(ctx->font1, SF(&ctx->framearena, "Hello %d", 10), v2i(0,200), ctx->font1.font_size, MAGENTA);
+    ////b_draw_text(ctx->font1, SC(&ctx->framearena, SF(&ctx->framearena, "%d:%f", 10, 3.4f)), v2i(0,100), ctx->font1.font_size, MAGENTA);
+
+    //if (force_redraw || dbuf_do_buffers_differ()) {
+        //++redraw_count;
+        ////draw_rect((Rect2i) {.size=ctx->window_size}, BLACK);
+        ////printfd(ANSI_MAG"Must redraw. "Bool_Fmt"!!!!!!1", Bool_Arg(dbuf_do_buffers_differ()));
+        //dbuf_draw_end();
+        ////drawbuf_swap();
+        //// TODO NONE OF THIS SHOULD BE HERE.
+        //draw_rect((Rect2i){.pos=v2i(ctx->window_size.x-30,ctx->window_size.y-30),.size=v2i(25,24)}, BLACK);
+        //draw_text(SF(&ctx->framearena, "%d", redraw_count), ctx->font1, v2i(ctx->window_size.x-30,ctx->window_size.y-30), 10, 0, 0, GREEN);
+        //rgba_to_bgra((u32*)x11_get_buffer(), (Rect2i){.size=ctx->window_size}, ctx->window_size.x);
+        //char *buffer = x11_swap_buffer();
+        //wod_set_buffer((u32*)buffer, ctx->window_size, ctx->window_size.x);
+    //}
+
+    ////printfd("Arena consumption is "PRIbyte" out of "PRIbyte, PRIbytearg((1 << 20) - (t->arena.end - t->arena.beg)), PRIbytearg(1 << 20));
+//}
 
 #endif

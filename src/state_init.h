@@ -34,6 +34,9 @@ void ctx_init(Ctx *ctx) {
     ctx->bookmarks = VecFile_create();
     ctx->history_stack = VecFile_create();
     ctx->folder_files = VecFile_create();
+    Focuser_create(&ctx->focuser);
+    mapstrobj_create(&ctx->frame_objs);
+
     ctx_get_env_vars(ctx);
 }
 
@@ -88,6 +91,8 @@ void ctx_free(Ctx *ctx) {
     VecFile_free(&ctx->folder_files);
     textbox_free(&ctx->tbox_path);
     textbox_free(&ctx->tbox_search);
+    Focuser_free(&ctx->focuser);
+    mapstrobj_free(&ctx->frame_objs);
 
     free_font(ctx->font1);
     free_font(ctx->font_mono);

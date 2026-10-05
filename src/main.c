@@ -1,3 +1,5 @@
+#include "anytype_user_types.h"
+#include "focuser_extra.h"
 #include "operations.h"
 #include "textbox_visual.h"
 #include "wod_drawer.h"
@@ -197,6 +199,7 @@ int main(void) {
 
         ctx->framearena = ArenaRoot_get_arena(ctx->framearena_root);
 
+        focuser_process_frame_end(ctx);
         kinput_frame_end();
         uimouseinput__frame_end();
         winput_consume_all();
